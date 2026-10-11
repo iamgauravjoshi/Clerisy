@@ -307,6 +307,7 @@ export function MeetingPage(props: {
         </Banner>
       )}
 
+      {/* the panes fill the window below the header and scroll on their own; never shorter than a usable minimum */}
       {wide ? (
         <div className="grid h-[max(28rem,calc(100vh-var(--topbar-h)-15rem))] grid-cols-[minmax(22rem,5fr)_7fr] gap-5">
           {transcript}

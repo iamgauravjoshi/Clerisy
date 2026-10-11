@@ -18,7 +18,7 @@ import { speakerHue } from './lib/speakerColor'
 import { MeetingPage } from './pages/MeetingPage'
 import { ProjectPage } from './pages/ProjectPage'
 import { WelcomePage } from './pages/WelcomePage'
-import { SettingsView } from './SettingsView'
+import { SettingsPage } from './pages/SettingsPage'
 
 export type View =
   | { kind: 'home' }
@@ -187,7 +187,7 @@ function Shell() {
           onOpenProject={(projectId) => setView({ kind: 'project', projectId, tab: 'board' })}
         />
       )}
-      {view.kind === 'settings' && <SettingsView onSaved={setSettings} />}
+      {view.kind === 'settings' && <SettingsPage onSaved={setSettings} />}
 
       {recording.startPrompt && (
         <StartRecordingDialog

@@ -81,9 +81,7 @@ export function ProposalCard({
         </div>
         <span className="flex items-center gap-2">
           <ImpactBadge impact={p.impact} />
-          <span className="font-mono text-fg-tertiary text-mono tabular-nums" title="Model confidence">
-            {Math.round(p.confidence * 100)}%
-          </span>
+          <span className="text-fg-tertiary text-small tabular-nums">{Math.round(p.confidence * 100)}% confidence</span>
         </span>
       </header>
 

@@ -106,6 +106,14 @@ describe('settings page', () => {
     expect(screen.getByText('Anthropic replied: OK')).toBeTruthy()
   })
 
+  it('shows why removing a saved key failed', async () => {
+    setup({ setSecret: () => Promise.reject(new Error('OS encryption is not available')) }, { hasKey: { anthropic: true } })
+    const remove = await screen.findByRole('button', { name: 'Remove saved key' })
+    await act(async () => fireEvent.click(remove))
+    expect(screen.getByText('OS encryption is not available')).toBeTruthy()
+    expect(screen.getByText('Key saved')).toBeTruthy()
+  })
+
   it('removes a saved key straight away', async () => {
     const { invoke } = setup({}, { hasKey: { anthropic: true } })
     expect(await screen.findByText('Key saved')).toBeTruthy()

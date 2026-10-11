@@ -15,10 +15,14 @@
     @apply bg-canvas font-sans text-body text-fg antialiased;
   }
 
-  /* one focus ring everywhere, keyboard focus only (§8.3) */
+  /*
+   * One focus ring everywhere, keyboard focus only (§8.3). An outline rather than a box-shadow: no component's shadow
+   * utility can override it, and Windows High Contrast keeps it. Inside tight containers, offset it inwards
+   * (-outline-offset-2) instead of removing it.
+   */
   :focus-visible {
-    outline: none;
-    box-shadow: var(--shadow-focus);
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
   }
 
   ::selection {
@@ -28,8 +32,7 @@
   /* Windows High Contrast: drop custom colours for the system's, and keep focus visible */
   @media (forced-colors: active) {
     :focus-visible {
-      outline: 2px solid Highlight;
-      outline-offset: 2px;
+      outline-color: Highlight;
     }
   }
 

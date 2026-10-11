@@ -2,7 +2,7 @@ import { cn } from '../../lib/cn'
 import { type Hue, toneVars } from '../../lib/hues'
 import { initials } from '../../lib/speakerColor'
 
-const SIZES = { xs: 'size-5 text-[0.625rem]', sm: 'size-6 text-small', md: 'size-8 text-body-strong' }
+const SIZES = { xs: 'size-5 text-micro', sm: 'size-6 text-small', md: 'size-8 text-body-strong' }
 
 /** Initials in a coloured circle, for speakers, stakeholders, owners and projects. Decorative unless `label` is set. */
 export function Avatar({

@@ -169,13 +169,14 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
 
 ## Renderer conventions
 
-- **The UI is being redesigned in steps; `DESIGN.md` is the spec** (tokens, components, folder structure, migration order).
-  - Styling is Tailwind CSS v4 (`@tailwindcss/vite`) on the tokens in `src/renderer/src/styles/tokens.css`. Tailwind's default colours, fonts and breakpoints are cleared (`styles/theme.css`), so only semantic utilities like `bg-surface` and `text-fg-secondary` exist.
-  - The old `styles.css` is unlayered, so it overrides Tailwind until each screen is rebuilt; it is deleted at the end.
-  - Primitives are in `components/ui` (import from its `index.ts`), domain badges in `components/domain`, hooks in `hooks/`, helpers in `lib/`. `ui.tsx` only re-exports them for the old screens; its `Modal` is the new `Dialog`.
+- **`DESIGN.md` is the UI spec**: tokens, components, folder structure, screens, motion and accessibility.
+  - Styling is Tailwind CSS v4 (`@tailwindcss/vite`) on the tokens in `src/renderer/src/styles/tokens.css`. Tailwind's default colours, fonts and breakpoints are cleared (`styles/theme.css`), so only semantic utilities like `bg-surface` and `text-fg-secondary` exist. Breakpoints are compact-first: unprefixed is the 900 px minimum window, `regular:` is 1100 px and up, `wide:` 1440 px.
+  - Variants use `cva`; merge classes with `cn()` (`lib/cn.ts`). Data-driven colours go through `toneVars()` (`lib/hues.ts`) so every class stays static. Biome sorts classes (`useSortedClasses`).
+  - **Folders** (Biome's `noRestrictedImports` enforces them): `components/ui` (primitives: no api, no `@shared` types, no features), `components/domain` and `components/layout` (no api or features), `features/<area>` (may use the api; never another feature or a page), `pages/` (one per view), `hooks/` and `lib/` (below the UI). Import primitives from `components/ui/index.ts`.
+  - The focus ring is a global `:focus-visible` outline in `styles/base.css`. Don't remove it; inside tight containers offset it inwards (`-outline-offset-2`).
   - `Dialog` uses the native `<dialog>` with `showModal()`. React's `autoFocus` runs before the dialog opens, so mark the field to focus with `data-autofocus` instead.
   - jsdom has no `<dialog>` or `matchMedia`; `test/renderer/setup.ts` fills them in. Fire a `cancel` event on the dialog to simulate Escape.
-  - `test/renderer/contrast.test.ts` checks the tokens against WCAG AA in both themes. Change a colour, run it.
+  - `test/renderer/contrast.test.ts` checks the tokens against WCAG AA in both themes. Change a colour, run it. `conventions.test.ts` bans hard-coded hex colours in components, the browser's confirm/alert/prompt, and awaiting `findBy…` inside `act()`.
 
 - **Every user action that calls the api goes through `useAction()`** (`hooks/useAction.ts`):
   - It shows the error instead of losing it.
@@ -183,7 +184,7 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
   - Do success-only follow-up, such as closing a dialog, inside the action. A dialog then stays open, with its input, when the save fails.
   - `MeetingPage` uses its own `run(label, fn)` for page-level actions; it also reloads the meeting afterwards.
 - **Confirm destructive actions with `useConfirm()`** (from `components/ui`), never `window.confirm`. Name the action on the button ("Delete meeting"), and pass `tone: 'danger'` so focus starts on Cancel.
-- **Keyboard access:** anything clickable that isn't a `<button>` (cards, list rows, quotes) spreads `clickable(fn)` from `ui.tsx`. That gives `role="button"`, `tabIndex=0`, and Enter/Space activation. Prefer a real `<button>` (styled with `.text-btn` if it should look like text) where the markup allows.
+- **Keyboard access:** anything clickable is a real `<button>` (cards, list rows, evidence quotes, the meeting title), so Enter and Space work natively. Icon-only buttons are `IconButton`, which requires a `label`. Composite widgets (Tabs, RadioCardGroup, SegmentedControl, Menu) handle arrow keys themselves; in-window shortcuts use `useHotkey`, which ignores keys while typing or while a dialog is open.
 - **"Accept all firm"** never bulk-accepts `close` or `supersede` proposals, because they remove items from the project state. Those always need their own click.
 
 ## Known limitations

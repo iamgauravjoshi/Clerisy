@@ -31,7 +31,7 @@ export function HistoryPanel({ versions, onOpenMeeting }: { versions: StateVersi
       </p>
       {days.map((d) => (
         <section key={d.day} aria-label={d.day} className="flex flex-col gap-3">
-          <h3 className="font-medium text-fg-tertiary text-small">{d.day}</h3>
+          <h2 className="font-medium text-fg-tertiary text-small">{d.day}</h2>
           <ol className="flex flex-col gap-3 border-line border-l-2 pl-4">
             {d.versions.map((v) => (
               <li key={v.id}>
@@ -49,7 +49,7 @@ function VersionCard({ version: v, onOpenMeeting }: { version: StateVersion; onO
   return (
     <article className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4 shadow-xs">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <h4 className="text-body-strong">{v.meetingTitle ?? 'Changed by hand'}</h4>
+        <h3 className="text-body-strong">{v.meetingTitle ?? 'Changed by hand'}</h3>
         <span className="text-fg-tertiary text-small">
           <Timestamp iso={v.createdAt} /> · {v.changes.length} change{v.changes.length === 1 ? '' : 's'}
         </span>

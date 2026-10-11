@@ -120,10 +120,10 @@ export function TranscriptPane({
           setFollowing(atBottom)
           if (atBottom) setUnseen(false)
         }}
-        className="min-h-0 flex-1 overflow-y-auto px-2 py-2 outline-none focus-visible:shadow-[inset_0_0_0_2px_var(--color-focus)]"
+        className="min-h-0 flex-1 overflow-y-auto px-2 py-2 -outline-offset-2"
       >
         {segments.length === 0 ? (
-          <EmptyState icon={AudioLines} title={live ? 'Listening…' : 'No transcript'} className="m-2 border-0">
+          <EmptyState icon={AudioLines} title={live ? 'Listening…' : 'No transcript'} level={3} className="m-2 border-0">
             {emptyMessage}
           </EmptyState>
         ) : (

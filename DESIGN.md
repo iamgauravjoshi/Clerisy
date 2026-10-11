@@ -1,6 +1,6 @@
 # MeetingBuddy design system and UI plan
 
-Status: **revision 2, decisions applied** (see §10). Nothing in `src/` has been changed yet. This document is the contract for the UI rebuild. Implementation starts only after it is approved.
+Status: **implemented** (Steps 0–7, see §9). This document is the spec for the renderer UI: keep it in step with the code. §0 describes the code as it was before the redesign.
 
 ## 0. Sources and scope
 
@@ -256,7 +256,6 @@ Elevation is mostly expressed by surface colour and a hairline border. Shadows a
 | `--shadow-sm` | `0 2px 6px rgb(9 25 72 / .06), 0 1px 2px rgb(9 25 72 / .04)` | `0 0 0 1px #2b2c2e` | Hovered interactive cards |
 | `--shadow-md` | `0 8px 24px rgb(9 25 72 / .10), 0 2px 6px rgb(9 25 72 / .06)` | `0 8px 24px rgb(0 0 0 / .5), 0 0 0 1px #2b2c2e` | Menus, popovers, toasts |
 | `--shadow-lg` | `0 24px 64px rgb(9 25 72 / .18)` | `0 24px 64px rgb(0 0 0 / .6), 0 0 0 1px #2b2c2e` | Dialogs |
-| `--shadow-focus` | `0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-focus)` | same | Focus ring (§8.3) |
 
 **Z-index:**
 
@@ -415,7 +414,7 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 | `danger-soft` | Error/Lighter | Danger-soft fill, danger text |
 | `record` | (new) | Record-solid fill, white text, with a dot icon |
 
-- States: hover darkens the fill by one step (or gets `--color-hover` for secondary/ghost); active translates 0.5 px down (`--dur-instant`); focus shows `--shadow-focus`; disabled uses disabled tokens with `cursor: not-allowed`.
+- States: hover darkens the fill by one step (or gets `--color-hover` for secondary/ghost); active translates 0.5 px down (`--dur-instant`); focus shows the global outline ring (§8.3); disabled uses disabled tokens with `cursor: not-allowed`.
 - Loading keeps the width (the label stays, the icon becomes a spinner), so the layout doesn't jump. It is wired to `useAction().busy`.
 - Text is sentence case, verb-first ("Apply 3 changes", not "Apply"). Text symbols like "✓" and "●" are replaced by real icons.
 
@@ -466,7 +465,7 @@ type InputProps = InputHTMLAttributes<HTMLInputElement> & {
 - States:
   - border `--color-line-strong`
   - hover `--color-line-hover`
-  - focus: accent border plus `--shadow-focus`
+  - focus: accent border plus the global outline ring
   - invalid: danger border, plus `text-danger-fg` helper text below
   - disabled: `--color-disabled`
 
@@ -750,7 +749,7 @@ None has an install script, so npm 11's install-script blocking (see CLAUDE.md) 
 // components/ui/Button/button.variants.ts
 export const buttonVariants = cva(
   'inline-flex items-center justify-center gap-2 rounded-md text-body-strong whitespace-nowrap transition-colors duration-fast ' +
-    'focus-visible:shadow-focus disabled:cursor-not-allowed disabled:bg-disabled disabled:text-fg-disabled active:translate-y-px',
+    'disabled:cursor-not-allowed disabled:bg-disabled disabled:text-fg-disabled active:translate-y-px',
   {
     variants: {
       variant: {
@@ -957,8 +956,8 @@ Target: **WCAG 2.2 AA**.
 
 ### 8.3 Focus styles
 
-- One ring everywhere: `box-shadow: var(--shadow-focus)`, which is a 2 px surface gap and then a 2 px `--color-focus` ring, applied on `:focus-visible` only.
-- Inside tight containers, such as a full-width transcript line, use an inset version (`inset 0 0 0 2px var(--color-focus)`).
+- One ring everywhere: a 2 px `--color-focus` **outline** with a 2 px offset, on `:focus-visible` only (`styles/base.css`). *As built:* an outline, not the box-shadow first planned, because a component's `shadow-*` utility would silently replace a box-shadow ring; an outline can't be overridden that way, and Windows High Contrast keeps it (recoloured to `Highlight`).
+- Inside tight containers, such as the transcript scroller, offset it inwards with `-outline-offset-2` rather than removing it.
 - Never `outline: none` without a replacement. `base.css` sets `:focus:not(:focus-visible) { outline: none }`, and that is the only removal.
 - Focus must never be obscured by the sticky `ReviewBar` or TopBar (WCAG 2.2 SC 2.4.11). The scroll containers use `scroll-padding-bottom` equal to the ReviewBar height.
 
@@ -1056,12 +1055,16 @@ After each sub-step, delete the matching function from `ProjectView.tsx`. When i
 **Step 6. Welcome and onboarding**
 - `WelcomePage` and `SetupChecklist`/`SetupCard`.
 
+*As built:* `pages/WelcomePage` (headline, the three steps, "Create your first project", and `SetupChecklist`, which explains each setup step and links to Settings). `BrandMark` is shared by the sidebar, the welcome page and `NoBridge`, which was restyled to match. Tests: `welcome.test.tsx`.
+
 **Step 7. Cleanup and audit**
 - Delete `styles.css`, the legacy variables, `ui.tsx` re-exports, `.text-btn` and the other old classes. Re-enable Biome's CSS formatter for all files, and drop the "hand-compacted styles.css" exception from `biome.jsonc`.
 - Check for stray arbitrary values (`-[`) and `dark:` overrides, and justify or remove each.
 - Grep for `window.confirm`, `title=` used as the only explanation, and hard-coded colours. Add Biome `noRestrictedImports` for the folder rules.
 - Run an accessibility pass: keyboard-only walk-through of every screen, Windows Narrator smoke test, forced-colors check, both themes at 900 px and 1440 px.
 - Update `CLAUDE.md`'s "Renderer conventions" for the new structure (Tailwind + `cva` rules, Button/Dialog/useConfirm/useToast, folder rules, the `theme` setting).
+
+*As built:* `styles.css`, `ui.tsx`, `SettingsView.tsx` and `lib/clickable.ts` are deleted, and Biome formats all CSS. Biome's `noRestrictedImports` enforces the folder rules of §5 per folder. `test/renderer/conventions.test.ts` bans hard-coded hex colours in components, the browser's confirm/alert/prompt, and awaiting `findBy…` inside `act()`. The audit found no `dark:` overrides; arbitrary values are limited to transition lists and grid templates; the two 10 px texts became the `text-micro` token; explanations that lived only in `title=` became a linked Tooltip (Accept all firm), visible text ("93% confidence") or screen-reader text (item versions). The focus ring became an outline (§8.3). The accessibility pass ran axe-core in the built app on every screen in both themes, plus a keyboard walk, forced colours and 900/1440 px widths; see the PR.
 
 **Later (not part of this migration):**
 - A quick switcher (`Ctrl+K`), inspired by the kit's search field. It needs a cross-project meetings query.

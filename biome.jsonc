@@ -39,9 +39,88 @@
   },
   "overrides": [
     {
-      // the pre-redesign stylesheet is hand-compacted one rule per line on purpose; it is deleted at the end of the redesign
-      "includes": ["src/renderer/src/styles.css"],
-      "formatter": { "enabled": false }
+      // primitives know nothing about the app: no api, no domain types, no features (DESIGN.md §5)
+      "includes": ["src/renderer/src/components/ui/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/api", "@shared/**", "**/features/**", "**/pages/**", "../domain/**", "../layout/**"],
+                    "message": "components/ui is generic: it may use lib/ and other primitives only. Domain wrappers belong in components/domain."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      // domain wrappers and layout render what they're given; data comes from features and pages
+      "includes": ["src/renderer/src/components/domain/**", "src/renderer/src/components/layout/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/api", "**/features/**", "**/pages/**"],
+                    "message": "components/domain and components/layout don't load data or use features; pass what they need as props."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      // a feature never reaches into a page or another feature's internals; share through components/ or lib/
+      "includes": ["src/renderer/src/features/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/pages/**", "../*/**", "!../../**"],
+                    "message": "Features don't import pages or other features. Move what both need into components/domain or lib/."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      // helpers and hooks sit below the UI
+      "includes": ["src/renderer/src/lib/**", "src/renderer/src/hooks/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["**/components/**", "**/features/**", "**/pages/**"],
+                    "message": "lib/ and hooks/ must not depend on components, features or pages."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
     },
     {
       // test doubles are loosely typed on purpose
