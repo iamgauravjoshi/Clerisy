@@ -15,8 +15,8 @@ import { useEvent } from './hooks/useEvent'
 import { useHotkey } from './hooks/useHotkey'
 import { REGULAR, useMediaQuery } from './hooks/useMediaQuery'
 import { speakerHue } from './lib/speakerColor'
-import { MeetingView } from './MeetingView'
-import { ProjectView } from './ProjectView'
+import { MeetingPage } from './pages/MeetingPage'
+import { ProjectPage } from './pages/ProjectPage'
 import { SettingsView } from './SettingsView'
 
 export type View =
@@ -175,12 +175,11 @@ function Shell() {
         </div>
       )}
       {view.kind === 'project' && (
-        <ProjectView
+        <ProjectPage
           key={view.projectId}
           projectId={view.projectId}
           initialTab={view.tab}
           onOpenMeeting={openMeeting}
-          onRecord={() => recording.requestStart()}
           onProjectsChanged={async (deletedId) => {
             const ps = await loadProjects()
             if (deletedId) setView(ps[0] ? { kind: 'project', projectId: ps[0].id } : { kind: 'home' })
@@ -188,10 +187,11 @@ function Shell() {
         />
       )}
       {view.kind === 'meeting' && (
-        <MeetingView
+        <MeetingPage
           key={view.meetingId}
           meetingId={view.meetingId}
           live={rec?.meetingId === view.meetingId}
+          selfName={settings?.selfName}
           onLoaded={setMeeting}
           onBack={(projectId) => setView({ kind: 'project', projectId, tab: 'meetings' })}
           onOpenProject={(projectId) => setView({ kind: 'project', projectId, tab: 'board' })}

@@ -22,8 +22,8 @@
 html, body, #root { height: 100%; margin: 0; }
 body { background: var(--bg); color: var(--text); font: var(--text-body) / 1.45 var(--font-sans); }
 button, input, select, textarea { font: inherit; color: inherit; }
-/* preflight zeroes paragraph margins; the old screens rely on the browser default */
-p { margin: 1em 0; }
+/* preflight zeroes paragraph margins; the old welcome screen relies on the browser default. Scoped, so it can't leak into new components */
+.empty p { margin: 1em 0; }
 h1, h2, h3 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 h1 { font-size: 20px; } h2 { font-size: 16px; } h3 { font-size: 14px; }
 a { color: var(--color-accent-fg); }

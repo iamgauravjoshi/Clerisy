@@ -26,6 +26,9 @@ if (typeof window !== 'undefined') {
     })
   }
 
+  // jsdom doesn't lay anything out, so scrolling an element into view is a no-op here; tests can spy on it
+  if (typeof Element.prototype.scrollIntoView !== 'function') Element.prototype.scrollIntoView = () => {}
+
   // the app's default window width (BrowserWindow width: 1280); a test can shrink it to check the compact layout
   Object.defineProperty(window, 'innerWidth', { value: 1280, writable: true, configurable: true })
 

@@ -112,3 +112,12 @@ export const REPORT = {
   report: { id: 'r1', meetingId: 'm1', createdAt: NOW, model: 'mock', summary: 'Backend moves to Postgres.', droppedCount: 0 },
   proposals: [PROPOSAL]
 }
+
+/** What the project page loads, as empty lists; spread it and override what a test needs. */
+export const PROJECT_PAGE = {
+  getProject: () => PROJECT,
+  listItems: () => [],
+  listMeetings: () => [],
+  listStakeholders: () => [],
+  listStateVersions: () => []
+}
