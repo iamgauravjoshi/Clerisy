@@ -13,7 +13,7 @@ const rec = vi.hoisted(() => ({
   stop: vi.fn(async () => {}),
   created: [] as unknown[][]
 }))
-vi.mock('../../src/renderer/src/recorder', () => ({
+vi.mock('../../src/renderer/src/features/recording/recorder', () => ({
   MeetingRecorder: class {
     warnings: string[] = []
     constructor(...args: unknown[]) {

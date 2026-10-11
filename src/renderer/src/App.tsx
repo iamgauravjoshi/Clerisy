@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import type { DetectedMeeting, Project, Settings } from '@shared/types'
+import { useCallback, useEffect, useState } from 'react'
+import type { Project, Settings } from '@shared/types'
 import { api, errMsg } from './api'
-import { MeetingRecorder } from './recorder'
-import { ErrorBox, Field, fmtTime, Modal, useAction, useEvent, useTick } from './ui'
+import { useRecordingController } from './features/recording/useRecordingController'
+import { ErrorBox, Field, fmtTime, Modal, useAction, useEvent } from './ui'
 import { ProjectView } from './ProjectView'
 import { MeetingView } from './MeetingView'
 import { SettingsView } from './SettingsView'
@@ -13,26 +13,14 @@ export type View =
   | { kind: 'meeting'; meetingId: string }
   | { kind: 'settings' }
 
-interface ActiveRecording {
-  meetingId: string
-  projectId: string
-  title: string
-  recorder: MeetingRecorder
-}
-
 const LAST_PROJECT = 'mb:lastProject'
 
 export function App() {
   const [projects, setProjects] = useState<Project[]>([])
   const [view, setView] = useState<View>({ kind: 'home' })
   const [settings, setSettings] = useState<Settings | null>(null)
-  const [rec, setRec] = useState<ActiveRecording | null>(null)
-  const recRef = useRef<ActiveRecording | null>(null)
-  const [startPrompt, setStartPrompt] = useState<{ sourceApp: string } | null>(null)
-  const [detected, setDetected] = useState<DetectedMeeting | null>(null)
   const [banner, setBanner] = useState<string | null>(null)
   const [newProject, setNewProject] = useState(false)
-  useTick(1000, !!rec)
 
   const loadProjects = useCallback(async () => {
     const ps = await api.listProjects()
@@ -53,79 +41,12 @@ export function App() {
     if (view.kind === 'project') localStorage.setItem(LAST_PROJECT, view.projectId)
   }, [view])
 
-  // ---------- recording ----------
-
-  const stopRecording = useCallback(async (reason?: string) => {
-    const r = recRef.current
-    if (!r) return
-    recRef.current = null
-    setRec(null)
-    window.mb.setRecordingState({ active: false, meetingId: null, projectId: null, startedAt: null })
-    try {
-      await r.recorder.stop()
-      await api.stopRecording(r.meetingId)
-      setBanner(
-        `${reason ? `${reason} ` : ''}Recording saved. Transcribing and analyzing in the background; you'll get a notification when the report is ready.`
-      )
-    } catch (e) {
-      // the audio is on disk either way; the meeting page offers to transcribe it
-      setBanner(`Stopping the recording failed: ${errMsg(e)}`)
-    }
-    setView({ kind: 'meeting', meetingId: r.meetingId })
-  }, [])
-
-  const startRecording = useCallback(async (projectId: string, title: string, sourceApp: string) => {
-    const s = await api.getSettings()
-    const m = await api.startRecording(projectId, title, sourceApp)
-    const recorder = new MeetingRecorder(m.id, s.sttProvider === 'none' ? 0 : s.chunkSeconds, (msg) => setBanner(msg))
-    try {
-      await recorder.start()
-    } catch (e) {
-      await api.deleteMeeting(m.id)
-      throw e
-    }
-    const active = { meetingId: m.id, projectId, title, recorder }
-    recRef.current = active
-    setRec(active)
-    setDetected(null)
-    window.mb.setRecordingState({ active: true, meetingId: m.id, projectId, startedAt: Date.now() })
-    if (recorder.warnings.length) setBanner(recorder.warnings.join(' '))
-    else if (s.sttProvider === 'none')
-      setBanner('Recording audio. No speech-to-text provider is set, so add one in Settings to get a transcript.')
-    setView({ kind: 'meeting', meetingId: m.id })
-  }, [])
-
-  const toggleRecording = useCallback(
-    (sourceApp = '') => {
-      if (recRef.current) void stopRecording()
-      else setStartPrompt({ sourceApp })
-    },
-    [stopRecording]
-  )
-
-  const markMoment = useCallback(() => {
-    const r = recRef.current
-    if (!r) return
-    const t = r.recorder.elapsed()
-    api.addMark(r.meetingId, t, 'important').then(
-      () => setBanner(`Marked ${fmtTime(t)} as important.`),
-      (e) => setBanner(`Marking the moment failed: ${errMsg(e)}`)
-    )
-  }, [])
-
-  useEvent('hotkey:record', (sourceApp: string) => toggleRecording(sourceApp || ''), [toggleRecording])
-  useEvent('hotkey:mark', markMoment, [markMoment])
-  useEvent('meeting:detected', (d: DetectedMeeting) => !recRef.current && setDetected(d))
-  useEvent('meeting:ended', () => void stopRecording('The meeting app released the microphone.'), [stopRecording])
+  const recording = useRecordingController({
+    notify: ({ message }) => setBanner(message),
+    openMeeting: (meetingId) => setView({ kind: 'meeting', meetingId })
+  })
+  const { active: rec, mark: markMoment, detected } = recording
   useEvent('navigate:meeting', (id: string) => setView({ kind: 'meeting', meetingId: id }))
-  // the user chose "Stop recording and quit": save the recording, then let main quit
-  useEvent('app:quit-requested', async () => {
-    try {
-      await stopRecording('MeetingBuddy is quitting.')
-    } finally {
-      window.mb.quitReady()
-    }
-  }, [stopRecording])
 
   useEffect(() => {
     if (!banner) return
@@ -165,7 +86,7 @@ export function App() {
           )}
         </div>
         <div className="side-footer">
-          <button className={`btn ${rec ? 'rec' : 'primary'}`} onClick={() => toggleRecording()} disabled={!rec && projects.length === 0}>
+          <button className={`btn ${rec ? 'rec' : 'primary'}`} onClick={() => recording.toggle()} disabled={!rec && projects.length === 0}>
             {rec ? '■ Stop recording' : '● Record meeting'}
           </button>
           <div className="muted small" style={{ textAlign: 'center' }}>
@@ -191,7 +112,7 @@ export function App() {
             <button className="btn sm" onClick={markMoment} title={settings?.hotkeyMark}>
               ★ Mark moment
             </button>
-            <button className="btn sm rec" onClick={() => void stopRecording()}>
+            <button className="btn sm rec" onClick={() => void recording.stop()}>
               ■ Stop
             </button>
           </div>
@@ -200,10 +121,10 @@ export function App() {
           <div className="banner">
             <b>Meeting detected:</b> {detected.app}
             <span className="grow" />
-            <button className="btn sm primary" onClick={() => setStartPrompt({ sourceApp: detected.app })}>
+            <button className="btn sm primary" onClick={() => recording.requestStart(detected.app)}>
               Record
             </button>
-            <button className="btn sm ghost" onClick={() => setDetected(null)}>
+            <button className="btn sm ghost" onClick={recording.dismissDetected}>
               Ignore
             </button>
           </div>
@@ -238,7 +159,7 @@ export function App() {
               projectId={view.projectId}
               initialTab={view.tab}
               onOpenMeeting={(id) => setView({ kind: 'meeting', meetingId: id })}
-              onRecord={() => setStartPrompt({ sourceApp: '' })}
+              onRecord={() => recording.requestStart()}
               onProjectsChanged={async (deletedId) => {
                 const ps = await loadProjects()
                 if (deletedId) setView(ps[0] ? { kind: 'project', projectId: ps[0].id } : { kind: 'home' })
@@ -259,15 +180,15 @@ export function App() {
         </div>
       </main>
 
-      {startPrompt && (
+      {recording.startPrompt && (
         <StartRecordingModal
           projects={projects}
-          sourceApp={startPrompt.sourceApp}
+          sourceApp={recording.startPrompt.sourceApp}
           defaultProjectId={currentProjectId ?? localStorage.getItem(LAST_PROJECT) ?? projects[0]?.id}
-          onClose={() => setStartPrompt(null)}
+          onClose={recording.closeStartPrompt}
           onStart={async (pid, title) => {
-            await startRecording(pid, title, startPrompt.sourceApp)
-            setStartPrompt(null)
+            await recording.start(pid, title, recording.startPrompt?.sourceApp ?? '')
+            recording.closeStartPrompt()
           }}
         />
       )}
