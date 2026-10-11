@@ -12,6 +12,7 @@ import {
   type StateVersion
 } from '@shared/types'
 import { api } from './api'
+import { useCaptureActions } from './features/meetings/capture'
 import { clickable, ErrorBox, Field, fmtDate, Modal, useAction, useEvent } from './ui'
 
 const STATUS_BADGE: Record<ItemStatus, string> = { open: 'blue', done: 'green', superseded: 'amber', cancelled: 'red' }
@@ -340,9 +341,7 @@ function ItemModal(props: { item: Partial<Item>; onClose: () => void; onSaved: (
 
 function Meetings({ projectId, onOpen }: { projectId: string; onOpen: (id: string) => void }) {
   const [meetings, setMeetings] = useState<Meeting[]>([])
-  const [paste, setPaste] = useState<{ title: string; text: string } | null>(null)
-  const pickFile = useAction()
-  const importAudio = useAction()
+  const capture = useCaptureActions(projectId, onOpen)
   const load = useCallback(async () => setMeetings(await api.listMeetings(projectId)), [projectId])
   useEffect(() => void load(), [load])
   useEvent('meeting:changed', () => void load(), [load])
@@ -350,35 +349,17 @@ function Meetings({ projectId, onOpen }: { projectId: string; onOpen: (id: strin
   return (
     <div className="col" style={{ gap: 12 }}>
       <div className="row">
-        <button className="btn" onClick={() => setPaste({ title: `Meeting · ${new Date().toLocaleDateString()}`, text: '' })}>
+        <button className="btn" onClick={capture.pasteTranscript}>
           Paste transcript
         </button>
-        <button
-          className="btn"
-          disabled={pickFile.busy}
-          onClick={() =>
-            void pickFile.run(async () => {
-              const f = await api.pickTranscriptFile()
-              if (f) setPaste({ title: f.name.replace(/\.[^.]+$/, ''), text: f.text })
-            })
-          }
-        >
+        <button className="btn" disabled={capture.pickingFile} onClick={capture.importTranscriptFile}>
           Import transcript file (.vtt / .srt / .txt)
         </button>
-        <button
-          className="btn"
-          disabled={importAudio.busy}
-          onClick={() =>
-            void importAudio.run(async () => {
-              const id = await api.importAudio(projectId)
-              if (id) onOpen(id)
-            })
-          }
-        >
-          {importAudio.busy ? 'Transcribing…' : 'Import recording (audio / video)'}
+        <button className="btn" disabled={capture.importingRecording} onClick={capture.importRecording}>
+          {capture.importingRecording ? 'Transcribing…' : 'Import recording (audio / video)'}
         </button>
       </div>
-      <ErrorBox error={pickFile.error ?? importAudio.error} />
+      <ErrorBox error={capture.error} />
       <div className="list">
         {meetings.map((m) => {
           const [label, color] = MEETING_STATUS[m.status]
@@ -402,65 +383,8 @@ function Meetings({ projectId, onOpen }: { projectId: string; onOpen: (id: strin
         })}
         {meetings.length === 0 && <div className="empty">No meetings yet. Record one, or import a transcript.</div>}
       </div>
-      {paste && (
-        <PasteTranscriptModal
-          initial={paste}
-          onClose={() => setPaste(null)}
-          onImport={async (title, text) => {
-            const m = await api.importTranscript(projectId, title, text)
-            setPaste(null)
-            onOpen(m.id)
-          }}
-        />
-      )}
+      {capture.dialog}
     </div>
-  )
-}
-
-/** On failure the dialog stays open with the error, so the pasted text isn't lost. */
-function PasteTranscriptModal(props: {
-  initial: { title: string; text: string }
-  onClose: () => void
-  onImport: (title: string, text: string) => Promise<void>
-}) {
-  const [title, setTitle] = useState(props.initial.title)
-  const [text, setText] = useState(props.initial.text)
-  const { run, busy, error } = useAction()
-  return (
-    <Modal
-      title="Import transcript"
-      onClose={props.onClose}
-      footer={
-        <>
-          <button className="btn" onClick={props.onClose}>
-            Cancel
-          </button>
-          <button
-            className="btn primary"
-            disabled={!text.trim() || busy}
-            onClick={() => void run(() => props.onImport(title.trim() || 'Meeting', text))}
-          >
-            Import
-          </button>
-        </>
-      }
-    >
-      <Field label="Meeting title">
-        <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
-      </Field>
-      <Field label="Transcript">
-        <textarea
-          className="input"
-          rows={14}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={
-            'Priya: We need SSO for the enterprise tier.\nRahul: Agreed. Let us push the launch to November 20.\n\nTeams/Zoom/Meet .vtt exports also work.'
-          }
-        />
-      </Field>
-      <ErrorBox error={error} />
-    </Modal>
   )
 }
 

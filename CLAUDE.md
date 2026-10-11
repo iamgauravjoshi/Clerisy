@@ -61,7 +61,7 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
 
 ### Recording pipeline (spans renderer and main)
 
-1. **Capture happens in the renderer**, in `recorder.ts`:
+1. **Capture happens in the renderer**, in `features/recording/recorder.ts`:
    - `getUserMedia` provides the mic, which is always the local user (`settings.selfName`).
    - `getDisplayMedia` provides system loopback audio, which is everyone else. Main's `setDisplayMediaRequestHandler` in `index.ts` answers it with `audio: 'loopback'`, and the video track is discarded.
    - The main window uses `backgroundThrottling: false` so recording continues while the window is hidden in the tray.
@@ -88,7 +88,7 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
    - The registry parsing is the pure `parseMicUsers`. `MeetingDetector` accepts `poll`/`now`/`graceMs` options so tests can script it.
    - `index.ts` turns `start` into a notification and banner.
    - It turns `end` (while recording) into the `meeting:ended` event, which auto-stops recording.
-   - **Recording state is owned by the renderer (`App.tsx`)**. It reports back via `window.mb.setRecordingState` so that main's tray menu and hotkeys stay in sync.
+   - **Recording state is owned by the renderer**, in `useRecordingController` (`features/recording/`). It reports back via `window.mb.setRecordingState` so that main's tray menu and hotkeys stay in sync. `test/renderer/recording.test.tsx` pins the whole flow (start, stop, mark, hotkeys, detection, auto-stop, quit).
    - Global hotkeys only broadcast `hotkey:record` and `hotkey:mark`.
 
 ### Analysis (`src/main/analysis.ts`): the core

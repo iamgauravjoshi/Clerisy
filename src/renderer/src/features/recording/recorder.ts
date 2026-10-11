@@ -1,4 +1,4 @@
-import { api } from './api'
+import { api } from '../../api'
 
 type Source = 'mic' | 'system'
 const MIME = 'audio/webm;codecs=opus'
