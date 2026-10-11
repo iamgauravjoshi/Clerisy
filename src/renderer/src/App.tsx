@@ -17,7 +17,8 @@ import { REGULAR, useMediaQuery } from './hooks/useMediaQuery'
 import { speakerHue } from './lib/speakerColor'
 import { MeetingPage } from './pages/MeetingPage'
 import { ProjectPage } from './pages/ProjectPage'
-import { SettingsView } from './SettingsView'
+import { WelcomePage } from './pages/WelcomePage'
+import { SettingsPage } from './pages/SettingsPage'
 
 export type View =
   | { kind: 'home' }
@@ -161,18 +162,7 @@ function Shell() {
   return (
     <AppShell sidebar={sidebar} topbar={topbar} banners={banners}>
       {view.kind === 'home' && (
-        <div className="empty">
-          <h2>Welcome to MeetingBuddy</h2>
-          <p>
-            Create a project, add what you already know (requirements, decisions, tasks, risks, deadlines), then record or import a meeting.
-          </p>
-          <p>
-            MeetingBuddy will tell you <b>what changed in the project because of the meeting</b>.
-          </p>
-          <button className="btn primary" onClick={() => setNewProject(true)}>
-            Create your first project
-          </button>
-        </div>
+        <WelcomePage settings={settings} onCreateProject={() => setNewProject(true)} onOpenSettings={() => setView({ kind: 'settings' })} />
       )}
       {view.kind === 'project' && (
         <ProjectPage
@@ -197,7 +187,7 @@ function Shell() {
           onOpenProject={(projectId) => setView({ kind: 'project', projectId, tab: 'board' })}
         />
       )}
-      {view.kind === 'settings' && <SettingsView onSaved={setSettings} />}
+      {view.kind === 'settings' && <SettingsPage onSaved={setSettings} />}
 
       {recording.startPrompt && (
         <StartRecordingDialog

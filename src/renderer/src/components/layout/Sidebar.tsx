@@ -1,8 +1,9 @@
-import { AudioLines, type LucideIcon } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { createContext, type ReactNode, useContext } from 'react'
 import { cn } from '../../lib/cn'
 import { Icon } from '../ui/Icon'
 import { Tooltip } from '../ui/Tooltip'
+import { BrandMark } from './BrandMark'
 
 /** Whether the sidebar is the narrow icon rail (below the `regular` breakpoint, DESIGN.md §3.4). */
 const RailContext = createContext(false)
@@ -18,9 +19,7 @@ export function Sidebar({ rail, children, footer }: { rail: boolean; children: R
         )}
       >
         <div className={cn('flex h-(--topbar-h) shrink-0 items-center gap-2.5', rail ? 'justify-center' : 'px-4')}>
-          <span className="flex size-8 items-center justify-center rounded-md bg-brand text-white" aria-hidden>
-            <Icon icon={AudioLines} />
-          </span>
+          <BrandMark />
           {rail ? <span className="sr-only">MeetingBuddy</span> : <span className="font-semibold text-subheading">MeetingBuddy</span>}
         </div>
         <div className={cn('flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto py-2', rail ? 'w-full items-center px-2' : 'px-3')}>

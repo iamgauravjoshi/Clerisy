@@ -3,20 +3,26 @@ import type { ReactNode } from 'react'
 import { cn } from '../../lib/cn'
 import { Icon } from './Icon'
 
-/** What is missing and what to do next (DESIGN.md §4.1). The copy always names the next step. */
+/**
+ * What is missing and what to do next (DESIGN.md §4.1). The copy always names the next step.
+ * `level` keeps the page's heading outline intact: 2 directly under a page title, 3 inside a section with its own h2.
+ */
 export function EmptyState({
   icon,
   title,
   children,
   actions,
+  level = 2,
   className
 }: {
   icon?: LucideIcon
   title: string
   children?: ReactNode
   actions?: ReactNode
+  level?: 2 | 3
   className?: string
 }) {
+  const Heading = level === 2 ? 'h2' : 'h3'
   return (
     <div
       className={cn(
@@ -29,7 +35,7 @@ export function EmptyState({
           <Icon icon={icon} size="lg" />
         </span>
       )}
-      <h3 className="text-fg text-subheading">{title}</h3>
+      <Heading className="text-fg text-subheading">{title}</Heading>
       {children && <div className="max-w-105 text-fg-secondary">{children}</div>}
       {actions && <div className="mt-1 flex flex-wrap items-center justify-center gap-2">{actions}</div>}
     </div>

@@ -165,6 +165,8 @@
   --text-body-strong--letter-spacing: -0.005em;
   --text-reading: 0.9375rem;
   --text-reading--line-height: 1.5rem;
+  --text-micro: 0.625rem; /* initials in the smallest avatar, step numbers: never running text */
+  --text-micro--line-height: 1;
   --text-small: 0.75rem;
   --text-small--line-height: 1rem;
   --text-mono: 0.75rem;
@@ -183,7 +185,6 @@
   --shadow-sm: 0 2px 6px rgb(9 25 72 / 0.06), 0 1px 2px rgb(9 25 72 / 0.04);
   --shadow-md: 0 8px 24px rgb(9 25 72 / 0.1), 0 2px 6px rgb(9 25 72 / 0.06);
   --shadow-lg: 0 24px 64px rgb(9 25 72 / 0.18);
-  --shadow-focus: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-focus);
 
   /* ---------- motion easing (DESIGN.md §2.9); durations are --dur-* below ---------- */
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);

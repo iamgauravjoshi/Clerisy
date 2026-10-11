@@ -5,7 +5,7 @@ import { cn } from '../../lib/cn'
 const cardVariants = cva('rounded-xl border border-line bg-surface shadow-xs', {
   variants: {
     padding: { none: '', sm: 'p-3', md: 'p-4', lg: 'p-6' },
-    // pair with a real button or clickable(): the hover only signals that the whole card responds
+    // put a real button inside or around it: the hover only signals that the whole card responds
     interactive: { true: 'cursor-pointer transition-[border-color,box-shadow] duration-fast hover:border-line-hover hover:shadow-sm' },
     selected: { true: 'border-accent ring-1 ring-accent' }
   },

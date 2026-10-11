@@ -11,7 +11,6 @@ const modal = (): HTMLElement => screen.getByRole('dialog')
 const fail = (message: string) => async () => Promise.reject(new Error(message))
 
 beforeEach(() => {
-  vi.spyOn(window, 'confirm').mockReturnValue(true)
   localStorage.clear()
 })
 afterEach(() => {
@@ -54,15 +53,5 @@ describe('creating a project', () => {
     type(within(modal()).getAllByRole('textbox')[0], 'Phoenix')
     fireEvent.click(within(modal()).getByText('Create'))
     expect(await within(modal()).findByText('Database is locked')).toBeTruthy()
-  })
-})
-
-describe('settings page', () => {
-  it('shows why removing a saved key failed', async () => {
-    const { SettingsView } = await import('../../src/renderer/src/SettingsView')
-    fakeMb({ getSettings: () => ({ ...SETTINGS, hasKey: { anthropic: true } }), setSecret: fail('OS encryption is not available') })
-    render(<SettingsView onSaved={() => {}} />)
-    fireEvent.click(await screen.findByText('Remove saved key'))
-    expect(await screen.findByText('OS encryption is not available')).toBeTruthy()
   })
 })

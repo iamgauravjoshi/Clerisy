@@ -61,7 +61,7 @@ export function MeetingsPanel({
 function MeetingGroup({ title, meetings, onOpen }: { title: string; meetings: Meeting[]; onOpen: (id: string) => void }) {
   return (
     <section aria-label={title} className="flex flex-col gap-2">
-      <h3 className="font-medium text-fg-tertiary text-small">{title}</h3>
+      <h2 className="font-medium text-fg-tertiary text-small">{title}</h2>
       <ul className="flex flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-xs">
         {meetings.map((m) => (
           <li key={m.id} className="border-line border-t first:border-t-0">

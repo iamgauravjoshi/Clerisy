@@ -82,9 +82,9 @@ function BoardColumn({ type, items, onAdd, onOpen }: { type: ItemType; items: It
         <span style={toneVars(meta.tone)} className="flex size-6 items-center justify-center rounded-md bg-(--tone-soft) text-(--tone-fg)">
           {meta.icon && <Icon icon={meta.icon} className="size-3.5" />}
         </span>
-        <h3 className="flex-1 text-body-strong">
+        <h2 className="flex-1 text-body-strong">
           {ITEM_TYPE_LABELS[type]} <span className="font-normal text-fg-tertiary tabular-nums">{items.length}</span>
-        </h3>
+        </h2>
         <IconButton icon={Plus} label={`Add ${meta.label.toLowerCase()}`} size="sm" onClick={onAdd} />
       </header>
       {items.map((i) => (
@@ -133,6 +133,9 @@ function ItemCard({ item, onOpen }: { item: Item; onOpen: () => void }) {
               title={`Changed ${item.version - 1} time${item.version === 2 ? '' : 's'}`}
             >
               v{item.version}
+              <span className="sr-only">
+                , changed {item.version - 1} time{item.version === 2 ? '' : 's'}
+              </span>
             </span>
           )}
         </span>

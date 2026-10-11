@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ErrorBox, useAction } from '../../src/renderer/src/ui'
+import { useAction } from '../../src/renderer/src/hooks/useAction'
 
 function Saver({ action, twice = false }: { action: () => Promise<unknown>; twice?: boolean }) {
   const { run, busy, error } = useAction()
@@ -15,7 +15,7 @@ function Saver({ action, twice = false }: { action: () => Promise<unknown>; twic
       >
         {busy ? 'Saving…' : 'Save'}
       </button>
-      <ErrorBox error={error} />
+      {error && <p role="alert">{error}</p>}
     </>
   )
 }

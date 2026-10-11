@@ -30,7 +30,7 @@ export function PipelineStepper({
             {i > 0 && <span aria-hidden className={cn('h-px w-6', done || isCurrent ? 'bg-brand' : 'bg-line-strong')} />}
             <span
               className={cn(
-                'flex size-5 items-center justify-center rounded-full border font-semibold text-[0.625rem]',
+                'flex size-5 items-center justify-center rounded-full border font-semibold text-micro',
                 done && 'border-brand bg-brand text-white',
                 isCurrent && !failed && 'border-brand text-accent-fg',
                 isCurrent && failed && 'border-danger-solid text-danger-fg',

@@ -1,6 +1,6 @@
 import { CATEGORY_LABELS, type Item, type Proposal, type ProposalCategory } from '@shared/types'
 import { ArrowUpRight, CheckCheck, FileSearch, Sparkles } from 'lucide-react'
-import { Banner, Button, EmptyState, Icon, Kbd, ProgressBar, SkeletonCard } from '../../components/ui'
+import { Banner, Button, EmptyState, Icon, Kbd, ProgressBar, SkeletonCard, Tooltip } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { ProposalCard } from './ProposalCard'
 import { firmProposals, type ReportData } from './useMeetingData'
@@ -87,7 +87,7 @@ export function ImpactReport({
           </div>
         )}
         {!analyzing && !data && (
-          <EmptyState icon={FileSearch} title="No report yet" className="border-0">
+          <EmptyState icon={FileSearch} title="No report yet" level={3} className="border-0">
             {emptyMessage}
           </EmptyState>
         )}
@@ -95,7 +95,7 @@ export function ImpactReport({
           <>
             <ReportSummary data={data} pending={pending} accepted={accepted} />
             {proposals.length === 0 && (
-              <EmptyState icon={CheckCheck} title="No project changes found" className="border-0">
+              <EmptyState icon={CheckCheck} title="No project changes found" level={3} className="border-0">
                 Nothing said in this meeting changes the project state.
               </EmptyState>
             )}
@@ -153,14 +153,15 @@ export function ImpactReport({
             <Kbd>J</Kbd>
             <Kbd>K</Kbd> move · <Kbd>A</Kbd> accept · <Kbd>R</Kbd> reject · <Kbd>E</Kbd> edit
           </span>
-          <Button
-            size="sm"
-            disabled={firm === 0 || busy}
-            onClick={onAcceptFirm}
-            title="Accepts every firm, evidence-backed change with confidence of at least 70%. Changes that close or replace an item always need their own click."
+          {/* a real tooltip, not title=: it shows on keyboard focus too and is linked to the button for screen readers */}
+          <Tooltip
+            describe
+            content="Accepts every firm, evidence-backed change with at least 70% confidence. Changes that close or replace an item always need their own click."
           >
-            Accept all firm{firm ? ` (${firm})` : ''}
-          </Button>
+            <Button size="sm" disabled={firm === 0 || busy} onClick={onAcceptFirm}>
+              Accept all firm{firm ? ` (${firm})` : ''}
+            </Button>
+          </Tooltip>
           <Button size="sm" variant="primary" icon={Sparkles} disabled={accepted === 0 || busy || analyzing} onClick={onApply}>
             Apply {accepted} change{accepted === 1 ? '' : 's'}
           </Button>
