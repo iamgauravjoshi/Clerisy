@@ -35,7 +35,7 @@ export function Tabs<T extends string>({
   const values = items.map((i) => i.value)
   return (
     <div className={cn('flex min-w-0 flex-col', className)}>
-      <div ref={list} role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto border-line border-b">
+      <div ref={list} role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto overflow-y-hidden border-line border-b">
         {items.map((t) => {
           const selected = t.value === value
           return (

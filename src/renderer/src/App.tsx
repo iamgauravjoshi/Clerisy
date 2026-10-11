@@ -15,7 +15,7 @@ import { useEvent } from './hooks/useEvent'
 import { useHotkey } from './hooks/useHotkey'
 import { REGULAR, useMediaQuery } from './hooks/useMediaQuery'
 import { speakerHue } from './lib/speakerColor'
-import { MeetingView } from './MeetingView'
+import { MeetingPage } from './pages/MeetingPage'
 import { ProjectPage } from './pages/ProjectPage'
 import { SettingsView } from './SettingsView'
 
@@ -187,10 +187,11 @@ function Shell() {
         />
       )}
       {view.kind === 'meeting' && (
-        <MeetingView
+        <MeetingPage
           key={view.meetingId}
           meetingId={view.meetingId}
           live={rec?.meetingId === view.meetingId}
+          selfName={settings?.selfName}
           onLoaded={setMeeting}
           onBack={(projectId) => setView({ kind: 'project', projectId, tab: 'meetings' })}
           onOpenProject={(projectId) => setView({ kind: 'project', projectId, tab: 'board' })}

@@ -163,6 +163,9 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
   - They start with `// @vitest-environment jsdom` and use React Testing Library. Main-process tests stay in Node.
   - `fakeMb()` in `test/renderer/fakeMb.ts` installs a fake `window.mb` that routes each api call to a handler, and fails on calls you didn't expect.
   - Call `cleanup()` in `afterEach`, because Vitest globals are off.
+  - Pages that confirm or toast need the providers: render them with `renderWithProviders()` from `test/renderer/render.tsx`. `PROJECT_PAGE` in `fakeMb.ts` holds empty handlers for everything the project page loads.
+  - Await `findBy…` queries **before** `act()`, never inside it: inside `act`, React holds back the render the query is waiting for, so it times out.
+  - `test/renderer/setup.ts` also stubs `scrollIntoView` and evaluates `matchMedia` width queries against `window.innerWidth` (1280 by default; set it lower to test the compact layout).
 
 ## Renderer conventions
 
@@ -178,7 +181,8 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
   - It shows the error instead of losing it.
   - Its `busy` flag disables the button, and a second trigger while it runs is ignored, so actions can't double-submit.
   - Do success-only follow-up, such as closing a dialog, inside the action. A dialog then stays open, with its input, when the save fails.
-  - `MeetingView` uses its own `run(label, fn)` for page-level actions; it also reloads the meeting afterwards.
+  - `MeetingPage` uses its own `run(label, fn)` for page-level actions; it also reloads the meeting afterwards.
+- **Confirm destructive actions with `useConfirm()`** (from `components/ui`), never `window.confirm`. Name the action on the button ("Delete meeting"), and pass `tone: 'danger'` so focus starts on Cancel.
 - **Keyboard access:** anything clickable that isn't a `<button>` (cards, list rows, quotes) spreads `clickable(fn)` from `ui.tsx`. That gives `role="button"`, `tabIndex=0`, and Enter/Space activation. Prefer a real `<button>` (styled with `.text-btn` if it should look like text) where the markup allows.
 - **"Accept all firm"** never bulk-accepts `close` or `supersede` proposals, because they remove items from the project state. Those always need their own click.
 

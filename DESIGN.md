@@ -1037,6 +1037,8 @@ Each step is one PR on its own branch.
 
 After each sub-step, delete the matching function from `ProjectView.tsx`. When it is empty, delete the file.
 
+*As built:* `pages/ProjectPage` with `useProjectData`, which loads the project's items, meetings, stakeholders and versions once (so tab counts and the summary strip agree) and reloads them on `meeting:changed`. The tabs live in `features/board`, `features/meetings` (`MeetingsPanel`), `features/stakeholders` and `features/history`; `FieldDiff` is a domain component shared with the meeting page. Item and project deletes use `useConfirm`. The header's old Record button is gone, since recording lives in the top bar. `ProjectView.tsx` was deleted in one go rather than function by function. Tests: `projectPage.test.tsx`.
+
 **Step 5. Meeting page**, the most important and the most complex screen. In this order:
 1. `MeetingHeader`, `PipelineStepper` and the banners.
 2. `TranscriptPane` / `TranscriptLine`, including live append and the "Jump to latest" pill.
@@ -1046,6 +1048,8 @@ After each sub-step, delete the matching function from `ProjectView.tsx`. When i
 6. Proposal keyboard shortcuts.
 
 `test/pipeline.test.ts` doesn't touch the renderer. The `views.test.tsx` meeting cases are updated to role queries in the same PR. *Checkpoint:* analyze → accept/edit/reject → apply → skipped-changes path, on a seeded database.
+
+*As built:* `pages/MeetingPage` with `features/meeting/` (`useMeetingData`, `PipelineStepper`, `TranscriptPane`, `ImpactReport` with the review bar, `ProposalCard`, `EvidenceQuote`, dialogs). The "Accept all firm" rule is the pure `firmProposals()`. Delete and re-analyze confirm with `useConfirm`; Delete and Rename sit in a "More actions" menu, and the title is also a rename button. An update proposal's card shows its title, due and owner changes as `FieldDiff`s. Tests: `meetingPage.test.tsx`, checked end to end in the app on a seeded report (keyboard review, evidence jump, apply).
 
 **Step 6. Welcome and onboarding**
 - `WelcomePage` and `SetupChecklist`/`SetupCard`.

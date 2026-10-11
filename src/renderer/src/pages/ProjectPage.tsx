@@ -1,5 +1,5 @@
 import { Pencil } from 'lucide-react'
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { PageHeader } from '../components/layout'
 import { Button, Skeleton, Tabs } from '../components/ui'
 import { StateBoard } from '../features/board/StateBoard'
@@ -12,9 +12,6 @@ import { StakeholdersPanel } from '../features/stakeholders/StakeholdersPanel'
 
 export type ProjectTab = 'board' | 'meetings' | 'stakeholders' | 'history'
 const TABS: ProjectTab[] = ['board', 'meetings', 'stakeholders', 'history']
-
-/** A description longer than this is clamped to two lines with a "Show more" toggle. */
-const LONG_DESCRIPTION = 180
 
 /**
  * A project (DESIGN.md §6.2–6.5): header, summary strip, and tabs for the project state, meetings, stakeholders and
@@ -31,6 +28,19 @@ export function ProjectPage(props: {
   const [editing, setEditing] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const { project, items, meetings, stakeholders, versions, reload } = data
+  // whether the two-line clamp hides text, so "Show more" only appears when there is more to show
+  const [clipped, setClipped] = useState(false)
+  const descRef = useRef<HTMLParagraphElement>(null)
+  const desc = project?.description ?? ''
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-measures when the text changes, which the effect only reads through the DOM
+  useLayoutEffect(() => {
+    const el = descRef.current
+    if (!el || expanded) return
+    const check = (): void => setClipped(el.scrollHeight > el.clientHeight + 1)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [desc, expanded])
 
   if (!project)
     return (
@@ -40,8 +50,6 @@ export function ProjectPage(props: {
       </div>
     )
 
-  const desc = project.description
-  const long = desc.length > LONG_DESCRIPTION || desc.split('\n').length > 2
   const openItems = items?.filter((i) => i.status === 'open').length
 
   return (
@@ -51,8 +59,10 @@ export function ProjectPage(props: {
         description={
           desc ? (
             <>
-              <p className={long && !expanded ? 'line-clamp-2 whitespace-pre-wrap' : 'whitespace-pre-wrap'}>{desc}</p>
-              {long && (
+              <p ref={descRef} className={expanded ? 'whitespace-pre-wrap' : 'line-clamp-2 whitespace-pre-wrap'}>
+                {desc}
+              </p>
+              {(clipped || expanded) && (
                 <button
                   type="button"
                   onClick={() => setExpanded((x) => !x)}
