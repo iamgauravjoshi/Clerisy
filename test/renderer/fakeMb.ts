@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import type { Settings } from '@shared/types'
+import type { MainEvents, Settings } from '@shared/types'
 
 type Handler = (...args: any[]) => unknown
 
@@ -13,8 +13,28 @@ export function fakeMb(handlers: Record<string, Handler>) {
     if (!h) throw new Error(`Unexpected api call: ${name}`)
     return h(...args)
   })
-  window.mb = { invoke, on: () => () => {}, applyHotkeys: async () => {}, setRecordingState: () => {}, quitReady: () => {} }
+  listeners.clear()
+  window.mb = {
+    invoke,
+    on: (channel, cb) => {
+      const set = listeners.get(channel) ?? new Set()
+      set.add(cb as Listener)
+      listeners.set(channel, set)
+      return () => set.delete(cb as Listener)
+    },
+    applyHotkeys: vi.fn(async () => {}),
+    setRecordingState: vi.fn(),
+    quitReady: vi.fn()
+  }
   return invoke
+}
+
+type Listener = (...args: unknown[]) => void
+const listeners = new Map<string, Set<Listener>>()
+
+/** Delivers a main → renderer event to whatever the components subscribed with `window.mb.on`. */
+export function emitMain<K extends keyof MainEvents>(channel: K, ...args: MainEvents[K]): void {
+  for (const cb of listeners.get(channel) ?? []) cb(...args)
 }
 
 export const SETTINGS: Settings = {
