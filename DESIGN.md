@@ -1026,6 +1026,8 @@ Each step is one PR on its own branch.
 
 *Risk:* low. It's self-contained, and `settings.test`/`views.test` cover it.
 
+*As built:* `pages/SettingsPage` with sections in `features/settings/`. The theme saves itself through `useTheme` the moment it's picked, so the Save button leaves `theme` out and can't overwrite it. Fields are checked with the same rules as `SETTINGS_FIELDS` before saving. `SettingsView.tsx` stays as a one-line re-export so this step doesn't touch `App.tsx`; Step 7 removes it. Tests: `settingsPage.test.tsx`.
+
 **Step 4. Project pages**, one sub-step per tab, in this order:
 1. `ProjectPage` with `PageHeader`, `Tabs`, `ProjectSummaryStrip`, and `EditProjectDialog` using `ConfirmDialog`.
 2. History: read-only, so the lowest risk.
