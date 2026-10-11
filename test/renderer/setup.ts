@@ -26,17 +26,23 @@ if (typeof window !== 'undefined') {
     })
   }
 
-  if (typeof window.matchMedia !== 'function') {
-    window.matchMedia = (query: string) =>
-      ({
-        matches: false,
-        media: query,
-        onchange: null,
-        addEventListener: () => {},
-        removeEventListener: () => {},
-        addListener: () => {},
-        removeListener: () => {},
-        dispatchEvent: () => false
-      }) as MediaQueryList
+  // the app's default window width (BrowserWindow width: 1280); a test can shrink it to check the compact layout
+  Object.defineProperty(window, 'innerWidth', { value: 1280, writable: true, configurable: true })
+
+  // evaluates min-width/max-width against window.innerWidth; other queries never match
+  window.matchMedia = (query: string) => {
+    const min = query.match(/min-width:\s*(\d+)px/)
+    const max = query.match(/max-width:\s*(\d+)px/)
+    const matches = (min || max) !== null && (!min || window.innerWidth >= Number(min[1])) && (!max || window.innerWidth <= Number(max[1]))
+    return {
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false
+    } as MediaQueryList
   }
 }

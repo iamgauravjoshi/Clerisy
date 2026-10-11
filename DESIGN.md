@@ -1019,6 +1019,8 @@ Each step is one PR on its own branch.
 2. Introduce `AppShell`, `Sidebar` (with the rail), `TopBar` (`CaptureMenu`, `RecordingPill`), `BannerStack`, `ToastRegion` and `ConfirmProvider`. Replace the `banner` string with toasts.
 3. The old page components render unchanged inside the new shell.
 
+*As built:* the paste/import actions moved into `features/meetings/capture.tsx` (`useCaptureActions`) so the Capture menu and the Meetings tab share them, and the New project and Start recording dialogs were rebuilt on the primitives. The project page keeps its old Record button and import buttons until Step 4. `test/renderer/recording.test.tsx` pins the recording flow; `shell.test.tsx` covers the sidebar, rail, breadcrumbs and Capture.
+
 *Risk:* medium, because recording state is the riskiest logic. *Checkpoint:* a manual recording with Teams/Zoom (detect → record → mark → stop → transcribe → analyze), plus a quit-while-recording check.
 
 **Step 3. Settings page**

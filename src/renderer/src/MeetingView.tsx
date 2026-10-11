@@ -38,7 +38,7 @@ const REPORT_ORDER: ProposalCategory[] = [
 export function MeetingView(props: {
   meetingId: string
   live: boolean
-  onLoaded: (projectId: string) => void
+  onLoaded: (meeting: Meeting) => void
   onBack: (projectId: string) => void
   onOpenProject: (projectId: string) => void
 }) {
@@ -62,7 +62,7 @@ export function MeetingView(props: {
     const m = await api.getMeeting(meetingId)
     if (!m) return
     setMeeting(m)
-    onLoaded(m.projectId)
+    onLoaded(m)
     const t = await api.getTranscript(meetingId)
     setSegments(t.segments)
     setMarks(t.marks)
