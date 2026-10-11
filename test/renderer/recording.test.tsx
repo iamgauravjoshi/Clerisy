@@ -34,6 +34,7 @@ function setup(overrides: Record<string, (...a: any[]) => unknown> = {}) {
     getProject: () => PROJECT,
     listItems: () => [],
     listMeetings: () => [],
+    listStateVersions: () => [],
     startRecording: () => LIVE,
     getMeeting: (id: string) => (id === 'm2' ? LIVE : MEETING),
     getTranscript: () => ({ segments: [], marks: [] }),

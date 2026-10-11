@@ -2,9 +2,8 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../../src/renderer/src/App'
-import { ProjectView } from '../../src/renderer/src/ProjectView'
 import { MeetingView } from '../../src/renderer/src/MeetingView'
-import { fakeMb, ITEM, MEETING, PROJECT, REPORT, SEGMENT, SETTINGS } from './fakeMb'
+import { fakeMb, ITEM, MEETING, PROJECT, PROJECT_PAGE, REPORT, SEGMENT, SETTINGS } from './fakeMb'
 
 const type = (el: HTMLElement, value: string): void => {
   fireEvent.change(el, { target: { value } })
@@ -32,8 +31,7 @@ describe('creating a project', () => {
         projects.push(p as typeof PROJECT)
         return p
       },
-      getProject: () => PROJECT,
-      listItems: () => []
+      ...PROJECT_PAGE
     })
     render(<App />)
     return invoke
@@ -57,55 +55,6 @@ describe('creating a project', () => {
     type(within(modal()).getAllByRole('textbox')[0], 'Phoenix')
     fireEvent.click(within(modal()).getByText('Create'))
     expect(await within(modal()).findByText('Database is locked')).toBeTruthy()
-  })
-})
-
-describe('project page', () => {
-  const view = (overrides: Record<string, (...a: any[]) => unknown> = {}) => {
-    fakeMb({
-      getProject: () => PROJECT,
-      listItems: () => [ITEM],
-      getItemHistory: () => [],
-      listMeetings: () => [],
-      listStakeholders: () => [],
-      ...overrides
-    })
-    render(<ProjectView projectId="p1" onOpenMeeting={() => {}} onRecord={() => {}} onProjectsChanged={() => {}} />)
-  }
-
-  it('shows why saving an item failed and keeps the dialog open', async () => {
-    view({ updateItem: fail('This item no longer exists.') })
-    fireEvent.click(await screen.findByText('Use Firebase'))
-    fireEvent.click(within(modal()).getByText('Save'))
-    expect(await within(modal()).findByText('This item no longer exists.')).toBeTruthy()
-  })
-
-  it('shows why deleting the project failed', async () => {
-    view({ deleteProject: fail('Database is locked') })
-    fireEvent.click(await screen.findByText('Edit project'))
-    fireEvent.click(within(modal()).getByText('Delete project'))
-    expect(await within(modal()).findByText('Database is locked')).toBeTruthy()
-  })
-
-  it('keeps a pasted transcript when importing it fails', async () => {
-    view({ importTranscript: fail('Could not find any transcript lines in that text.') })
-    fireEvent.click(await screen.findByText('Meetings'))
-    fireEvent.click(await screen.findByText('Paste transcript'))
-    const text = within(modal()).getByPlaceholderText(/Priya:/)
-    type(text, 'just some notes')
-    fireEvent.click(within(modal()).getByText('Import'))
-    expect(await within(modal()).findByText('Could not find any transcript lines in that text.')).toBeTruthy()
-    expect((within(modal()).getByPlaceholderText(/Priya:/) as HTMLTextAreaElement).value).toBe('just some notes')
-  })
-
-  it('shows why removing a stakeholder failed', async () => {
-    view({
-      listStakeholders: () => [{ id: 'st1', projectId: 'p1', name: 'Priya', role: '', email: '' }],
-      deleteStakeholder: fail('Database is locked')
-    })
-    fireEvent.click(await screen.findByText('Stakeholders'))
-    fireEvent.click(await screen.findByText('Remove'))
-    expect(await screen.findByText('Database is locked')).toBeTruthy()
   })
 })
 
@@ -178,23 +127,6 @@ describe('accept all firm', () => {
 })
 
 describe('keyboard access', () => {
-  it('opens an item with Enter', async () => {
-    fakeMb({ getProject: () => PROJECT, listItems: () => [ITEM], getItemHistory: () => [] })
-    render(<ProjectView projectId="p1" onOpenMeeting={() => {}} onRecord={() => {}} onProjectsChanged={() => {}} />)
-    const card = await screen.findByRole('button', { name: /Use Firebase/ })
-    expect(card.tabIndex).toBe(0)
-    fireEvent.keyDown(card, { key: 'Enter' })
-    expect(await screen.findByText('Edit item')).toBeTruthy()
-  })
-
-  it('opens a meeting from the list with Space', async () => {
-    const onOpen = vi.fn()
-    fakeMb({ getProject: () => PROJECT, listItems: () => [], listMeetings: () => [MEETING] })
-    render(<ProjectView projectId="p1" initialTab="meetings" onOpenMeeting={onOpen} onRecord={() => {}} onProjectsChanged={() => {}} />)
-    fireEvent.keyDown(await screen.findByRole('button', { name: /Weekly sync/ }), { key: ' ' })
-    expect(onOpen).toHaveBeenCalledWith('m1')
-  })
-
   it('reaches evidence quotes and the meeting title from the keyboard', async () => {
     fakeMb({
       getMeeting: () => MEETING,

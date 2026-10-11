@@ -14,6 +14,7 @@ function setup(overrides: Record<string, (...a: any[]) => unknown> = {}) {
     getProject: () => PROJECT,
     listItems: () => [],
     listMeetings: () => [MEETING],
+    listStateVersions: () => [],
     getMeeting: () => MEETING,
     getTranscript: () => ({ segments: [], marks: [] }),
     getReport: () => null,

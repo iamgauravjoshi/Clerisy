@@ -2,3 +2,4 @@
 export { AppShell } from './AppShell'
 export { Sidebar, SidebarItem, SidebarSection } from './Sidebar'
 export { Breadcrumbs, type Crumb, TopBar } from './TopBar'
+export { PageHeader } from './PageHeader'

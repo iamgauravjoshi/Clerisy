@@ -16,7 +16,7 @@ import { useHotkey } from './hooks/useHotkey'
 import { REGULAR, useMediaQuery } from './hooks/useMediaQuery'
 import { speakerHue } from './lib/speakerColor'
 import { MeetingView } from './MeetingView'
-import { ProjectView } from './ProjectView'
+import { ProjectPage } from './pages/ProjectPage'
 import { SettingsView } from './SettingsView'
 
 export type View =
@@ -175,12 +175,11 @@ function Shell() {
         </div>
       )}
       {view.kind === 'project' && (
-        <ProjectView
+        <ProjectPage
           key={view.projectId}
           projectId={view.projectId}
           initialTab={view.tab}
           onOpenMeeting={openMeeting}
-          onRecord={() => recording.requestStart()}
           onProjectsChanged={async (deletedId) => {
             const ps = await loadProjects()
             if (deletedId) setView(ps[0] ? { kind: 'project', projectId: ps[0].id } : { kind: 'home' })
