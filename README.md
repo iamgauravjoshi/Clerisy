@@ -47,6 +47,25 @@ Data is stored in `%APPDATA%\MeetingBuddy`:
 - `secrets.json` (encrypted)
 - `audio\<meeting-id>\{mic,system}.webm`
 
+## Releasing
+
+Installed copies update themselves from **GitHub Releases**. They check a little after starting and then every few hours, never while recording. New versions download in the background, and the app offers **Restart to update**. Otherwise the update installs the next time MeetingBuddy quits.
+
+To publish a new version:
+
+1. Bump the version in a pull request: `npm version minor --no-git-tag-version` (or `patch`), commit, and merge.
+2. Tag the merged commit on `main` and push the tag:
+
+   ```bash
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+
+3. The **Release** workflow (`.github/workflows/release.yml`) checks that the tag matches `package.json`, runs the checks and tests, and builds the installer. It uploads the installer, `latest.yml` and the `.blockmap` to a **draft** release.
+4. Open the draft on GitHub, write the release notes, and click **Publish release**.
+
+Drafts are invisible to the updater, so nothing reaches users until step 4. Keep the files on published releases: the next version's differential download uses the previous `.blockmap`. The app isn't code-signed yet, so Windows SmartScreen warns when someone installs it for the first time, though updates still install.
+
 ## Architecture
 
 | Path                           | Purpose                                                                               |

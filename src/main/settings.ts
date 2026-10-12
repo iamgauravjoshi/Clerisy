@@ -20,7 +20,8 @@ const DEFAULTS: StoredSettings = {
   chunkSeconds: 30,
   selfName: 'Me',
   theme: 'system',
-  launchAtLogin: true
+  launchAtLogin: true,
+  autoUpdate: true
 }
 
 const settingsFile = (): string => join(app.getPath('userData'), 'settings.json')

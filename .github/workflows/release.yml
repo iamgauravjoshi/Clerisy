@@ -1,0 +1,45 @@
+---
+# Builds the Windows installer for a version tag and uploads it to a DRAFT GitHub release, with the latest.yml and
+# .blockmap files the in-app updater reads. Nothing reaches users until the draft is published by hand
+# (see "Releasing" in README.md).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write # create the draft release and upload its files
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Tag must match package.json version
+        shell: bash
+        run: |
+          version="v$(node -p "require('./package.json').version")"
+          if [ "$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $version. Use 'npm version' to bump and tag together."
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm run check # Biome: lint + formatting
+      - run: npm run typecheck
+      - run: npm test
+
+      - name: Build and upload to a draft release
+        run: npm run release:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -181,6 +181,7 @@ export interface Settings {
   selfName: string // label for the local mic stream
   theme: Theme // 'system' follows the Windows light/dark setting
   launchAtLogin: boolean // start in the tray when Windows starts (installed app only)
+  autoUpdate: boolean // check for and download updates in the background (installed app only)
   // which secrets are stored (values never leave the main process)
   hasKey: Partial<Record<LlmProvider | SttProvider, boolean>>
 }
@@ -204,6 +205,18 @@ export interface AppInfo {
 }
 
 export const REPO_URL = 'https://github.com/iamgauravjoshi/MeetingBuddy'
+
+/**
+ * Where the updater is. Updates come from GitHub Releases and download in the background; installing waits for the
+ * user (Restart to update) or happens when the app quits. `checkedAt` is when the last check finished (ISO time).
+ */
+export type UpdateStatus =
+  | { state: 'unsupported' } // running from source: the installer does the updating
+  | { state: 'idle'; checkedAt: string | null } // up to date as of checkedAt, or never checked
+  | { state: 'checking' }
+  | { state: 'downloading'; version: string; percent: number }
+  | { state: 'downloaded'; version: string } // ready: installs on restart
+  | { state: 'error'; message: string; checkedAt: string }
 
 export interface DetectedMeeting {
   app: string
@@ -229,6 +242,7 @@ export interface MainEvents {
   'transcript:appended': [meetingId: string, added: Segment[]]
   'navigate:meeting': [meetingId: string]
   'app:quit-requested': []
+  'update:status': [status: UpdateStatus]
 }
 
 // a Record must name every event exactly once, so the preload's allow-list can't drift from MainEvents
@@ -240,7 +254,8 @@ const EVENT_NAMES: Record<keyof MainEvents, true> = {
   'meeting:changed': true,
   'transcript:appended': true,
   'navigate:meeting': true,
-  'app:quit-requested': true
+  'app:quit-requested': true,
+  'update:status': true
 }
 /** The channels the preload lets the renderer subscribe to. */
 export const MAIN_EVENTS = Object.keys(EVENT_NAMES) as (keyof MainEvents)[]

@@ -19,7 +19,7 @@ npx vitest run -t "drops changes whose"     # single test by name
 npm run lint                        # Biome lint
 npm run format                      # Biome format --write
 npm run check                       # Biome ci: lint + formatting check (runs in CI)
-npm run dist:win                    # build + electron-builder → release/MeetingBuddy Setup x.y.z.exe
+npm run dist:win                    # build + electron-builder → release/MeetingBuddy-Setup-x.y.z.exe (never publishes)
 npm run icons                       # regenerate the app and tray icons from resources/logo.svg (output is committed)
 ```
 
@@ -130,6 +130,17 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
   - It covers only meetings that **started before** the one being analyzed, so re-analyzing an old meeting never sees later ones.
   - It includes the 5 most recent such meetings, with up to 20 change lines each.
 
+### Updates and releases
+
+- `src/main/updater.ts` wraps electron-updater's `autoUpdater` (injected, so `test/updater.test.ts` drives it with a fake). It's Electron-free.
+  - **Running from source** gets a null backend: status `unsupported`, and nothing is ever checked.
+  - **Checks:** 30 s after start, then every 4 h, only while the `autoUpdate` setting is on and nothing is recording. A manual check works either way. A check that is already running is shared, and once an update is `downloaded` there are no more checks.
+  - **Downloads** happen in the background (`autoDownload`). They install on quit (`autoInstallOnAppQuit`), or with **Restart to update** (`api.installUpdate`), which is refused while recording.
+  - **Gotcha:** `quitAndInstall()` closes the windows **before** `before-quit` fires, and the main window hides to the tray on close unless `quitting` is set. So `install()` calls the `beforeInstall` hook, which sets `quitting = true` in `index.ts`, first. Without it the app would stay in the tray and never update.
+  - Status reaches the UI through the `update:status` event. Consumers are `useUpdateStatus`, the shell's `UpdateReadyBanner` (hidden while recording), Settings › About `UpdatesPanel`, and the tray's "Restart to update" item.
+- **Publishing:** `build.publish` is GitHub with `releaseType: draft`, and the installer is named `MeetingBuddy-Setup-${version}.exe` (no spaces). Pushing a `v*` tag runs `.github/workflows/release.yml`, which checks that the tag matches `package.json`, runs check, typecheck and tests, then `npm run release:win` (`--publish always`). That uploads to a **draft**, which the updater ignores until it is published by hand.
+- **To test updates without publishing:** build the app, then build a higher version into another folder with `npx electron-builder --win --publish never -c.extraMetadata.version=0.1.1 -c.directories.output=release-next`. Serve that folder over HTTP, and replace the first build's `resources/app-update.yml` with `provider: generic` and `url: http://127.0.0.1:<port>`. **Force-kill** the app afterwards: a normal quit installs the downloaded update. The download is cached in `%LOCALAPPDATA%\meetingbuddy-updater`; delete it after a test.
+
 ### Icons
 
 - `resources/logo.svg` is the single source. `npm run icons` (`scripts/build-icons.mjs`, with `@resvg/resvg-js`) renders `build/icon.png` (1024 px; electron-builder makes the .exe, installer and shortcut icons from it) and `resources/icons/`: `app.png` (window and notifications) and `tray`/`tray-recording` at 16/20/24/32 px as `@1.25x`/`@1.5x`/`@2x` files. The generated PNGs are committed; `test/icons.test.ts` checks their sizes and the packaging config.
@@ -168,7 +179,7 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
 - `test/apply.test.ts`, `recording.test.ts`, `api.test.ts`, `db.test.ts`, `ipc.test.ts`, `settings.test.ts` and `detector.test.ts` cover the rest of main. Electron is mocked with `vi.mock('electron')` and a temp `userData` folder.
 - **Renderer tests** live in `test/renderer/*.test.tsx`:
   - They start with `// @vitest-environment jsdom` and use React Testing Library. Main-process tests stay in Node.
-  - `fakeMb()` in `test/renderer/fakeMb.ts` installs a fake `window.mb` that routes each api call to a handler, and fails on calls you didn't expect.
+  - `fakeMb()` in `test/renderer/fakeMb.ts` installs a fake `window.mb` that routes each api call to a handler, and fails on calls you didn't expect. The only exception is `AMBIENT`: calls every screen makes (`getUpdateStatus`, from the shell's update banner) get a default answer, which a test can override.
   - Call `cleanup()` in `afterEach`, because Vitest globals are off.
   - Pages that confirm or toast need the providers: render them with `renderWithProviders()` from `test/renderer/render.tsx`. `PROJECT_PAGE` in `fakeMb.ts` holds empty handlers for everything the project page loads.
   - Await `findBy…` queries **before** `act()`, never inside it: inside `act`, React holds back the render the query is waiting for, so it times out.

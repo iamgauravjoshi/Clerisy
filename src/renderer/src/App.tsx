@@ -8,6 +8,7 @@ import { CaptureMenu } from './features/meetings/CaptureMenu'
 import { SetupCard } from './features/onboarding/SetupCard'
 import { NewProjectDialog } from './features/projects/NewProjectDialog'
 import { DetectedMeetingBanner } from './features/recording/DetectedMeetingBanner'
+import { UpdateReadyBanner } from './features/updates/UpdateReadyBanner'
 import { RecordingPill } from './features/recording/RecordingPill'
 import { StartRecordingDialog } from './features/recording/StartRecordingDialog'
 import { useRecordingController } from './features/recording/useRecordingController'
@@ -150,14 +151,18 @@ function Shell() {
     />
   )
 
-  const banners =
-    recording.detected && !rec ? (
-      <DetectedMeetingBanner
-        meeting={recording.detected}
-        onRecord={() => recording.detected && recording.requestStart(recording.detected.app)}
-        onIgnore={recording.dismissDetected}
-      />
-    ) : null
+  const banners = (
+    <>
+      {recording.detected && !rec && (
+        <DetectedMeetingBanner
+          meeting={recording.detected}
+          onRecord={() => recording.detected && recording.requestStart(recording.detected.app)}
+          onIgnore={recording.dismissDetected}
+        />
+      )}
+      <UpdateReadyBanner recording={!!rec} />
+    </>
+  )
 
   return (
     <AppShell sidebar={sidebar} topbar={topbar} banners={banners}>

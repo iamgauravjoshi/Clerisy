@@ -5,14 +5,23 @@ import { BrandMark } from '../../components/layout'
 import { Badge, Banner, Button, buttonVariants, Icon } from '../../components/ui'
 import { useAction } from '../../hooks/useAction'
 import { SettingsSection } from './SettingsSection'
+import { UpdatesPanel } from './UpdatesPanel'
 
 const LINKS = [
   { href: REPO_URL, label: 'Source code on GitHub', icon: ExternalLink },
   { href: `${REPO_URL}/issues/new`, label: 'Report a problem', icon: Bug }
 ]
 
-/** The version, where the data lives, and where to get help. */
-export function AboutSection({ info }: { info: AppInfo }) {
+/** The version and updates, where the data lives, and where to get help. */
+export function AboutSection({
+  info,
+  autoUpdate,
+  onAutoUpdate
+}: {
+  info: AppInfo
+  autoUpdate: boolean
+  onAutoUpdate: (on: boolean) => void
+}) {
   const open = useAction()
   return (
     <SettingsSection id="settings-about" title="About">
@@ -26,6 +35,8 @@ export function AboutSection({ info }: { info: AppInfo }) {
           </span>
         </div>
       </div>
+
+      <UpdatesPanel autoUpdate={autoUpdate} onAutoUpdate={onAutoUpdate} />
 
       <div className="flex flex-col gap-1.5">
         <span className="text-body-strong">Data folder</span>

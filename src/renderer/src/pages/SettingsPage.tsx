@@ -124,7 +124,7 @@ export function SettingsPage({ onSaved }: { onSaved: (s: Settings) => void }) {
             }}
           />
           <AppearanceSection />
-          <AboutSection info={info} />
+          <AboutSection info={info} autoUpdate={draft.autoUpdate} onAutoUpdate={(autoUpdate) => update({ autoUpdate })} />
 
           {dirty && (
             <section

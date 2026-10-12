@@ -1,11 +1,12 @@
 import { app, BrowserWindow, dialog, Notification, shell } from 'electron'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import type { AppInfo, Item, LlmProvider, MainEvents, Proposal, Settings, Stakeholder, SttProvider } from '@shared/types'
+import type { AppInfo, Item, LlmProvider, UpdateStatus, MainEvents, Proposal, Settings, Stakeholder, SttProvider } from '@shared/types'
 import * as db from './db'
 import { analyzeMeeting, applyApproved } from './analysis'
 import { applyLoginItem, getSettings, loginItemStatus, saveSettings, setSecret } from './settings'
 import { appIconPath } from './icons'
+import { Updater } from './updater'
 import { checkUploadSize, CHUNK_TIMEOUT_MS, FILE_TIMEOUT_MS, isEcho, mergeStreams, transcribe } from './stt'
 import { parseTranscript } from './transcriptParser'
 import { getModel } from './llm'
@@ -35,6 +36,18 @@ function notify(title: string, body: string, onClick?: () => void): void {
   const n = new Notification({ title, body, icon: appIconPath() })
   if (onClick) n.on('click', onClick)
   n.show()
+}
+
+// replaced at startup by the real updater (index.ts); until then, and when running from source, updates are unsupported
+let updater = new Updater(null, {
+  onStatus: () => {},
+  onDownloaded: () => {},
+  isBusy: () => false,
+  autoCheck: () => false,
+  beforeInstall: () => {}
+})
+export function setUpdater(u: Updater): void {
+  updater = u
 }
 
 export let showMainWindow: () => void = () => {}
@@ -130,6 +143,10 @@ export const api = {
     applyLoginItem(true)
     return loginItemStatus()
   },
+  getUpdateStatus: (): UpdateStatus => updater.status,
+  checkForUpdates: (): Promise<UpdateStatus> => updater.check(),
+  /** Restarts into a downloaded update; refused while recording. */
+  installUpdate: (): void => updater.install(),
   /** Opens the folder with the database, settings and recordings in Explorer. */
   openDataFolder: async (): Promise<void> => {
     const error = await shell.openPath(app.getPath('userData'))
