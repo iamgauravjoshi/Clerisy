@@ -36,7 +36,7 @@ npm install
 npm run dev          # run with hot reload
 npm test             # unit and pipeline tests
 npm run typecheck
-npm run dist:win     # build release/MeetingBuddy Setup x.y.z.exe
+npm run dist:win     # build release/MeetingBuddy-Setup-x.y.z.exe
 npm run icons        # regenerate icons after changing resources/logo.svg
 ```
 

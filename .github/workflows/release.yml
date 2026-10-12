@@ -39,7 +39,41 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
-      - name: Build and upload to a draft release
-        run: npm run release:win
+      - name: Build the installer
+        run: npm run dist:win
+
+      # Uploaded with gh, not electron-builder's --publish: electron-builder 26 creates its GitHub publisher per file
+      # without awaiting a shared one, so the installer and its .blockmap raced to create two releases for the same tag
+      # and v0.1.0 ended up with its .exe and latest.yml on a hidden draft.
+      - name: Upload to a draft release
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          files=("release/MeetingBuddy-Setup-$version.exe" "release/MeetingBuddy-Setup-$version.exe.blockmap" "release/latest.yml")
+          ls -l "${files[@]}"
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            if [ "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft)" != "true" ]; then
+              echo "::error::Release $GITHUB_REF_NAME is already published; refusing to change its files."
+              exit 1
+            fi
+          else
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "MeetingBuddy $version" --generate-notes
+          fi
+          gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+
+      # the job used to succeed without the installer; fail instead if any file the updater needs is missing
+      - name: Check the release has every file
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          assets="$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name')"
+          echo "$assets"
+          for f in "MeetingBuddy-Setup-$version.exe" "MeetingBuddy-Setup-$version.exe.blockmap" latest.yml; do
+            grep -qxF "$f" <<< "$assets" || { echo "::error::$f is missing from release $GITHUB_REF_NAME"; exit 1; }
+          done
+          count="$(gh api "repos/$GITHUB_REPOSITORY/releases" --jq "[.[] | select(.tag_name == \"$GITHUB_REF_NAME\")] | length")"
+          [ "$count" = "1" ] || { echo "::error::$count releases exist for $GITHUB_REF_NAME; expected 1"; exit 1; }

@@ -13,8 +13,7 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome ci .",
-    "icons": "node scripts/build-icons.mjs",
-    "release:win": "electron-vite build && electron-builder --win --publish always"
+    "icons": "node scripts/build-icons.mjs"
   },
   "author": "MeetingBuddy",
   "license": "UNLICENSED",
