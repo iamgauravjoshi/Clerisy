@@ -85,6 +85,12 @@ describe('settings', () => {
     expect(nativeTheme.themeSource).toBe('dark')
   })
 
+  it('defaults to checking for updates automatically', () => {
+    expect(getSettings().autoUpdate).toBe(true)
+    saveSettings({ autoUpdate: false })
+    expect(getSettings().autoUpdate).toBe(false)
+  })
+
   it('defaults to starting with Windows and drops a non-boolean stored value', () => {
     expect(getSettings().launchAtLogin).toBe(true)
     writeFileSync(settingsFile, JSON.stringify({ launchAtLogin: 'yes' }))

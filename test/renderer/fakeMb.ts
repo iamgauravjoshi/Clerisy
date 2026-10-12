@@ -3,13 +3,18 @@ import type { AppInfo, MainEvents, Settings } from '@shared/types'
 
 type Handler = (...args: any[]) => unknown
 
+/** Calls every screen makes, answered unless a test passes its own handler: the update banner lives in the app shell. */
+const AMBIENT: Record<string, Handler> = {
+  getUpdateStatus: () => ({ state: 'idle', checkedAt: null })
+}
+
 /**
  * Installs a fake `window.mb` (the preload bridge) whose `invoke` routes each api call to a handler.
  * A call without a handler fails the test, so components can't silently call more than expected.
  */
 export function fakeMb(handlers: Record<string, Handler>) {
   const invoke = vi.fn(async (name: string, ...args: unknown[]) => {
-    const h = handlers[name]
+    const h = handlers[name] ?? AMBIENT[name]
     if (!h) throw new Error(`Unexpected api call: ${name}`)
     return h(...args)
   })
@@ -50,6 +55,7 @@ export const SETTINGS: Settings = {
   selfName: 'Me',
   theme: 'system',
   launchAtLogin: true,
+  autoUpdate: true,
   hasKey: {}
 }
 

@@ -13,9 +13,11 @@ import {
   Tray
 } from 'electron'
 import { join } from 'node:path'
+import { autoUpdater } from 'electron-updater'
 import { pathToFileURL } from 'node:url'
 import { openDb, recoverInterruptedMeetings } from './db'
-import { api, broadcast, removeOrphanedAudio, setShowMainWindow } from './api'
+import { api, broadcast, removeOrphanedAudio, setShowMainWindow, setUpdater } from './api'
+import { Updater } from './updater'
 import { MeetingDetector } from './detector'
 import { applyLoginItem, applyTheme, getSettings } from './settings'
 import { appIconPath, trayImage } from './icons'
@@ -29,6 +31,7 @@ let quitting = false
 let quitPrompted = false
 let recording: RecordingState = { active: false, meetingId: null, projectId: null, startedAt: null }
 const detector = new MeetingDetector()
+let updater: Updater | null = null
 // started by Windows at sign-in: stay in the tray until the user opens the window
 const startHidden = isHiddenLaunch(process.argv)
 // the only page this app loads; IPC, navigation, capture and permissions are limited to it
@@ -104,6 +107,7 @@ function refreshTray(): void {
         click: () => toggleRecording()
       },
       { label: 'Mark important moment', accelerator: s.hotkeyMark, enabled: recording.active, click: () => broadcast('hotkey:mark') },
+      ...updateMenuItems(),
       { type: 'separator' },
       {
         label: 'Detect meetings automatically',
@@ -119,6 +123,29 @@ function refreshTray(): void {
       { label: 'Quit', click: () => app.quit() }
     ])
   )
+}
+
+function updateMenuItems(): Electron.MenuItemConstructorOptions[] {
+  const status = updater?.status
+  if (status?.state !== 'downloaded') return []
+  return [
+    { type: 'separator' },
+    {
+      label: `Restart to update to ${status.version}`,
+      // installing restarts the app, which would cut a recording off
+      enabled: !recording.active,
+      click: () => installUpdate()
+    }
+  ]
+}
+
+function installUpdate(): void {
+  try {
+    updater?.install()
+  } catch (e) {
+    showWindow()
+    void dialog.showMessageBox({ type: 'info', title: 'MeetingBuddy', message: e instanceof Error ? e.message : String(e) })
+  }
 }
 
 function toggleRecording(source = ''): void {
@@ -265,6 +292,30 @@ app.whenReady().then(() => {
   }
   nativeTheme.on('updated', () => win?.setBackgroundColor(canvasColor()))
   createWindow()
+  updater = new Updater(app.isPackaged ? autoUpdater : null, {
+    onStatus: (status) => {
+      broadcast('update:status', status)
+      refreshTray()
+    },
+    onDownloaded: (version) => {
+      if (!Notification.isSupported()) return
+      const n = new Notification({
+        title: `MeetingBuddy ${version} is ready`,
+        body: 'Restart to update now, or it installs the next time you quit MeetingBuddy.',
+        icon: appIconPath()
+      })
+      n.on('click', showWindow)
+      n.show()
+    },
+    isBusy: () => recording.active,
+    autoCheck: () => getSettings().autoUpdate,
+    // the main window hides to the tray on close unless the app is quitting
+    beforeInstall: () => {
+      quitting = true
+    }
+  })
+  setUpdater(updater)
+  updater.start()
   tray = new Tray(trayImage(false))
   tray.on('click', showWindow)
   refreshTray()
@@ -283,6 +334,7 @@ app.on('before-quit', (e) => {
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
   detector.stop()
+  updater?.stop()
 })
 app.on('window-all-closed', () => {
   // stay in the tray

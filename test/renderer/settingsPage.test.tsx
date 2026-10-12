@@ -136,6 +136,14 @@ describe('settings page', () => {
     expect(calls(invoke, 'getAppInfo')).toHaveLength(2)
   })
 
+  it('saves the automatic update check like any other setting', async () => {
+    const { invoke } = setup()
+    fireEvent.click(await screen.findByRole('switch', { name: 'Check for updates automatically' }))
+    await act(async () => fireEvent.click(within(saveBar()!).getByRole('button', { name: 'Save changes' })))
+    const [[patch]] = calls(invoke, 'saveSettings') as [[Record<string, unknown>]]
+    expect(patch.autoUpdate).toBe(false)
+  })
+
   it('can only change starting with Windows in the installed app', async () => {
     setup({}, {}, { packaged: false, loginItem: { supported: false, willLaunch: false } })
     const startup = (await screen.findByRole('switch', { name: 'Start MeetingBuddy when Windows starts' })) as HTMLButtonElement

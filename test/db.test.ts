@@ -73,7 +73,9 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-describe('migrations', () => {
+// These open real database files and copy them with VACUUM INTO. That usually takes milliseconds, but a busy
+// Windows CI runner's disk has taken over 5 s (vitest's default), so allow more before calling it a failure.
+describe('migrations', { timeout: 30_000 }, () => {
   it('brings a new database to the latest version without a backup', () => {
     db.openDb(file)
     db.closeDb()
