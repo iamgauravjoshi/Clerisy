@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Settings } from '@shared/types'
+import type { AppInfo, Settings } from '@shared/types'
 import { SettingsPage } from '../../src/renderer/src/pages/SettingsPage'
-import { fakeMb, SETTINGS } from './fakeMb'
+import { APP_INFO, fakeMb, SETTINGS } from './fakeMb'
 
 // The rebuilt Settings page (DESIGN.md §6.7): a save bar only when something changed, field-level validation,
 // keys saved through setSecret, and a theme that applies on its own.
@@ -13,10 +13,11 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function setup(overrides: Record<string, (...a: any[]) => unknown> = {}, initial: Partial<Settings> = {}) {
+function setup(overrides: Record<string, (...a: any[]) => unknown> = {}, initial: Partial<Settings> = {}, info: Partial<AppInfo> = {}) {
   let stored: Settings = { ...SETTINGS, ...initial }
   const invoke = fakeMb({
     getSettings: () => stored,
+    getAppInfo: () => ({ ...APP_INFO, ...info }),
     saveSettings: (patch: Partial<Settings>) => (stored = { ...stored, ...patch }),
     setSecret: (name: string, value: string) => (stored = { ...stored, hasKey: { ...stored.hasKey, [name]: !!value } }),
     testLlm: () => 'Anthropic replied: OK',
@@ -121,6 +122,73 @@ describe('settings page', () => {
     expect(calls(invoke, 'setSecret')).toEqual([['anthropic', '']])
     expect(screen.queryByText('Key saved')).toBeNull()
     expect(saveBar()).toBeNull()
+  })
+
+  it('saves starting with Windows like any other setting', async () => {
+    const { invoke } = setup()
+    const startup = await screen.findByRole('switch', { name: 'Start MeetingBuddy when Windows starts' })
+    expect(startup.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(startup)
+    await act(async () => fireEvent.click(within(saveBar()!).getByRole('button', { name: 'Save changes' })))
+    const [[patch]] = calls(invoke, 'saveSettings') as [[Record<string, unknown>]]
+    expect(patch.launchAtLogin).toBe(false)
+    // the startup entry may have changed, so its status is read again
+    expect(calls(invoke, 'getAppInfo')).toHaveLength(2)
+  })
+
+  it('can only change starting with Windows in the installed app', async () => {
+    setup({}, {}, { packaged: false, loginItem: { supported: false, willLaunch: false } })
+    const startup = (await screen.findByRole('switch', { name: 'Start MeetingBuddy when Windows starts' })) as HTMLButtonElement
+    expect(startup.disabled).toBe(true)
+    expect(screen.getByText('Available in the installed app. Running from source leaves Windows startup unchanged.')).toBeTruthy()
+    expect(screen.getByText('Running from source')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Turn back on' })).toBeNull()
+  })
+
+  it('says when Windows switched startup off, and turns it back on', async () => {
+    const { invoke } = setup(
+      { enableLoginItem: () => ({ supported: true, willLaunch: true }) },
+      {},
+      {
+        loginItem: { supported: true, willLaunch: false }
+      }
+    )
+    const turnOn = await screen.findByRole('button', { name: 'Turn back on' })
+    expect(screen.getByText(/Windows has switched MeetingBuddy off/)).toBeTruthy()
+    await act(async () => fireEvent.click(turnOn))
+    expect(calls(invoke, 'enableLoginItem')).toEqual([[]])
+    expect(screen.queryByText(/Windows has switched MeetingBuddy off/)).toBeNull()
+  })
+
+  it("doesn't warn about Windows startup when the setting is off", async () => {
+    setup({}, { launchAtLogin: false }, { loginItem: { supported: true, willLaunch: false } })
+    await screen.findByRole('switch', { name: 'Start MeetingBuddy when Windows starts' })
+    expect(screen.queryByText(/Windows has switched MeetingBuddy off/)).toBeNull()
+  })
+
+  it('shows the version and data folder, and opens the folder', async () => {
+    const { invoke } = setup({ openDataFolder: () => undefined })
+    expect(await screen.findByText('Version 0.1.0')).toBeTruthy()
+    expect(screen.getByText(APP_INFO.dataDir)).toBeTruthy()
+    expect(screen.queryByText('Running from source')).toBeNull()
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Open folder' })))
+    expect(calls(invoke, 'openDataFolder')).toEqual([[]])
+  })
+
+  it('says why the data folder could not be opened', async () => {
+    setup({ openDataFolder: () => Promise.reject(new Error('Could not open the data folder: access denied')) })
+    const open = await screen.findByRole('button', { name: 'Open folder' })
+    await act(async () => fireEvent.click(open))
+    expect(screen.getByText('Could not open the data folder: access denied')).toBeTruthy()
+  })
+
+  it('links to the project on GitHub, opening in the browser', async () => {
+    setup()
+    const source = await screen.findByRole('link', { name: 'Source code on GitHub' })
+    const report = screen.getByRole('link', { name: 'Report a problem' })
+    expect(source.getAttribute('href')).toBe('https://github.com/iamgauravjoshi/MeetingBuddy')
+    expect(report.getAttribute('href')).toBe('https://github.com/iamgauravjoshi/MeetingBuddy/issues/new')
+    expect(source.getAttribute('target')).toBe('_blank')
   })
 
   it('applies a theme as soon as it is picked, and rolls back if saving it fails', async () => {

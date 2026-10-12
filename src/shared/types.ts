@@ -180,6 +180,7 @@ export interface Settings {
   chunkSeconds: number
   selfName: string // label for the local mic stream
   theme: Theme // 'system' follows the Windows light/dark setting
+  launchAtLogin: boolean // start in the tray when Windows starts (installed app only)
   // which secrets are stored (values never leave the main process)
   hasKey: Partial<Record<LlmProvider | SttProvider, boolean>>
 }
@@ -192,6 +193,17 @@ export const DEFAULT_MODELS: Record<LlmProvider, string> = {
   ollama: 'qwen3:14b',
   'openai-compatible': ''
 }
+
+/** What Settings › About shows, and whether starting with Windows can work in this build. */
+export interface AppInfo {
+  version: string
+  packaged: boolean // false when running from source (npm run dev / start)
+  dataDir: string
+  // whether Windows will actually start the app at sign-in; startup apps can be switched off outside MeetingBuddy
+  loginItem: { supported: boolean; willLaunch: boolean }
+}
+
+export const REPO_URL = 'https://github.com/iamgauravjoshi/MeetingBuddy'
 
 export interface DetectedMeeting {
   app: string

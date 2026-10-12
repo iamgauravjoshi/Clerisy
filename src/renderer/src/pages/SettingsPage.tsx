@@ -1,7 +1,8 @@
-import type { Settings } from '@shared/types'
+import type { AppInfo, Settings } from '@shared/types'
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
 import { Banner, Button, Skeleton, SkeletonCard } from '../components/ui'
+import { AboutSection } from '../features/settings/AboutSection'
 import { AppearanceSection } from '../features/settings/AppearanceSection'
 import { ModelSection } from '../features/settings/ModelSection'
 import { KEYLESS_LLM, NEEDS_BASE_URL, validate } from '../features/settings/providers'
@@ -14,7 +15,8 @@ const SECTIONS: NavSection[] = [
   { id: 'settings-model', label: 'AI model' },
   { id: 'settings-transcription', label: 'Transcription' },
   { id: 'settings-recording', label: 'Recording and hotkeys' },
-  { id: 'settings-appearance', label: 'Appearance' }
+  { id: 'settings-appearance', label: 'Appearance' },
+  { id: 'settings-about', label: 'About' }
 ]
 
 /** The fields the Save button writes. The theme saves itself (AppearanceSection) and keys go through setSecret. */
@@ -28,27 +30,27 @@ const sameForm = (a: Settings, b: Settings): boolean => JSON.stringify(formField
  */
 export function SettingsPage({ onSaved }: { onSaved: (s: Settings) => void }) {
   const [saved, setSaved] = useState<Settings | null>(null)
+  const [info, setInfo] = useState<AppInfo | null>(null)
   const [draft, setDraft] = useState<Settings | null>(null)
   const [llmKey, setLlmKey] = useState('')
   const [sttKey, setSttKey] = useState('')
   const [justSaved, setJustSaved] = useState(false)
   const save = useAction()
 
-  useEffect(
-    () =>
-      void api.getSettings().then((s) => {
-        setSaved(s)
-        setDraft(s)
-      }),
-    []
-  )
+  useEffect(() => {
+    void api.getSettings().then((s) => {
+      setSaved(s)
+      setDraft(s)
+    })
+    void api.getAppInfo().then(setInfo)
+  }, [])
 
   const update = useCallback((patch: Partial<Settings>) => {
     setDraft((d) => d && { ...d, ...patch })
     setJustSaved(false)
   }, [])
 
-  if (!draft || !saved)
+  if (!draft || !saved || !info)
     return (
       <div className="flex flex-col gap-6" aria-busy="true">
         <Skeleton className="h-7 w-40" />
@@ -72,6 +74,8 @@ export function SettingsPage({ onSaved }: { onSaved: (s: Settings) => void }) {
     setLlmKey('')
     setSttKey('')
     await window.mb.applyHotkeys()
+    // saving may have changed the Windows startup entry
+    setInfo(await api.getAppInfo())
     setSaved(next)
     setDraft(next)
     onSaved(next)
@@ -109,8 +113,18 @@ export function SettingsPage({ onSaved }: { onSaved: (s: Settings) => void }) {
             }}
           />
           <TranscriptionSection value={draft} onChange={update} apiKey={sttKey} onApiKey={setSttKey} chunkError={errors.chunkSeconds} />
-          <RecordingSection value={draft} onChange={update} />
+          <RecordingSection
+            value={draft}
+            onChange={update}
+            loginItem={info.loginItem}
+            startupBlocked={saved.launchAtLogin && info.loginItem.supported && !info.loginItem.willLaunch}
+            onEnableStartup={async () => {
+              const loginItem = await api.enableLoginItem()
+              setInfo((i) => i && { ...i, loginItem })
+            }}
+          />
           <AppearanceSection />
+          <AboutSection info={info} />
 
           {dirty && (
             <section

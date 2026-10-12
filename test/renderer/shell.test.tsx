@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../../src/renderer/src/App'
 import { setupSteps } from '../../src/renderer/src/features/onboarding/SetupCard'
-import { fakeMb, MEETING, PROJECT, SETTINGS } from './fakeMb'
+import { APP_INFO, fakeMb, MEETING, PROJECT, SETTINGS } from './fakeMb'
 
 // The app shell (DESIGN.md §3.1): sidebar, top bar with breadcrumbs and Capture, and the setup card.
 
@@ -11,6 +11,7 @@ function setup(overrides: Record<string, (...a: any[]) => unknown> = {}) {
   const invoke = fakeMb({
     listProjects: () => [PROJECT],
     getSettings: () => SETTINGS,
+    getAppInfo: () => APP_INFO,
     getProject: () => PROJECT,
     listItems: () => [],
     listMeetings: () => [MEETING],

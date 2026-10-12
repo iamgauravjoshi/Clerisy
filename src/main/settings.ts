@@ -3,6 +3,7 @@ import { existsSync, readFileSync, renameSync, rmSync, writeFileSync } from 'nod
 import { join } from 'node:path'
 import { DEFAULT_MODELS, type LlmProvider, type Settings, type SttProvider } from '@shared/types'
 import { SETTINGS_FIELDS } from './ipc'
+import { HIDDEN_ARG, shouldWriteLoginItem } from './startup'
 
 type StoredSettings = Omit<Settings, 'hasKey'>
 type SecretName = LlmProvider | SttProvider
@@ -18,7 +19,8 @@ const DEFAULTS: StoredSettings = {
   hotkeyMark: 'CommandOrControl+Shift+D',
   chunkSeconds: 30,
   selfName: 'Me',
-  theme: 'system'
+  theme: 'system',
+  launchAtLogin: true
 }
 
 const settingsFile = (): string => join(app.getPath('userData'), 'settings.json')
@@ -85,9 +87,35 @@ export function getSettings(): Settings {
 }
 
 export function saveSettings(patch: Partial<StoredSettings>): Settings {
-  writeJsonAtomic(settingsFile(), { ...readSettings(), ...patch })
+  const before = readSettings()
+  writeJsonAtomic(settingsFile(), { ...before, ...patch })
   if (patch.theme) applyTheme()
+  // the Save button sends every field, so only a real change counts as the user turning startup on or off
+  if (patch.launchAtLogin !== undefined && patch.launchAtLogin !== before.launchAtLogin) applyLoginItem(true)
   return getSettings()
+}
+
+// The login item is only written by the installed app: from source it would register electron.exe, and the
+// --hidden argument is how Windows tells the app it was started at sign-in (macOS isn't supported yet).
+const loginItemSupported = (): boolean => app.isPackaged && process.platform === 'win32'
+const LOGIN_ITEM = { args: [HIDDEN_ARG] }
+
+/**
+ * Makes Windows start the app at sign-in, or stop doing so, to match the setting. At startup it only fixes a
+ * mismatch; after the user changes the setting it always writes, which also re-enables a switched-off entry.
+ */
+export function applyLoginItem(userChanged = false): void {
+  if (!loginItemSupported()) return
+  const wanted = readSettings().launchAtLogin
+  const registered = app.getLoginItemSettings(LOGIN_ITEM).openAtLogin
+  if (shouldWriteLoginItem(wanted, registered, userChanged))
+    app.setLoginItemSettings({ ...LOGIN_ITEM, openAtLogin: wanted, enabled: wanted })
+}
+
+/** Whether starting with Windows works in this build, and whether Windows will really do it (Task Manager can turn it off). */
+export function loginItemStatus(): { supported: boolean; willLaunch: boolean } {
+  if (!loginItemSupported()) return { supported: false, willLaunch: false }
+  return { supported: true, willLaunch: app.getLoginItemSettings(LOGIN_ITEM).executableWillLaunchAtLogin }
 }
 
 /**

@@ -42,7 +42,8 @@ export const SETTINGS_FIELDS = {
     .int()
     .refine((n) => n === 0 || (n >= 10 && n <= 120), 'Live transcript chunks must be 0 (off) or 10–120 seconds'),
   selfName: z.string().max(100),
-  theme: z.enum(['system', 'light', 'dark'])
+  theme: z.enum(['system', 'light', 'dark']),
+  launchAtLogin: z.boolean()
 }
 
 /** Argument schemas for every api function, in order. The type check below makes a missing or mismatched schema a compile error. */
@@ -54,6 +55,9 @@ export const API_ARGS = {
     z.string().max(10_000)
   ]),
   testLlm: z.tuple([]),
+  getAppInfo: z.tuple([]),
+  enableLoginItem: z.tuple([]),
+  openDataFolder: z.tuple([]),
 
   listProjects: z.tuple([]),
   getProject: z.tuple([id]),

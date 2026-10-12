@@ -1,10 +1,11 @@
-import { app, BrowserWindow, dialog, Notification } from 'electron'
+import { app, BrowserWindow, dialog, Notification, shell } from 'electron'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import type { Item, LlmProvider, MainEvents, Proposal, Settings, Stakeholder, SttProvider } from '@shared/types'
+import type { AppInfo, Item, LlmProvider, MainEvents, Proposal, Settings, Stakeholder, SttProvider } from '@shared/types'
 import * as db from './db'
 import { analyzeMeeting, applyApproved } from './analysis'
-import { getSettings, saveSettings, setSecret } from './settings'
+import { applyLoginItem, getSettings, loginItemStatus, saveSettings, setSecret } from './settings'
+import { appIconPath } from './icons'
 import { checkUploadSize, CHUNK_TIMEOUT_MS, FILE_TIMEOUT_MS, isEcho, mergeStreams, transcribe } from './stt'
 import { parseTranscript } from './transcriptParser'
 import { getModel } from './llm'
@@ -31,7 +32,7 @@ export function broadcast<K extends keyof MainEvents>(channel: K, ...args: MainE
 
 function notify(title: string, body: string, onClick?: () => void): void {
   if (!Notification.isSupported()) return
-  const n = new Notification({ title, body })
+  const n = new Notification({ title, body, icon: appIconPath() })
   if (onClick) n.on('click', onClick)
   n.show()
 }
@@ -117,6 +118,22 @@ export const api = {
   setSecret: (name: LlmProvider | SttProvider, value: string): Settings => {
     setSecret(name, value)
     return getSettings()
+  },
+  getAppInfo: (): AppInfo => ({
+    version: app.getVersion(),
+    packaged: app.isPackaged,
+    dataDir: app.getPath('userData'),
+    loginItem: loginItemStatus()
+  }),
+  /** Re-registers the startup entry after Windows switched it off; only on the user's request. */
+  enableLoginItem: (): AppInfo['loginItem'] => {
+    applyLoginItem(true)
+    return loginItemStatus()
+  },
+  /** Opens the folder with the database, settings and recordings in Explorer. */
+  openDataFolder: async (): Promise<void> => {
+    const error = await shell.openPath(app.getPath('userData'))
+    if (error) throw new Error(`Could not open the data folder: ${error}`)
   },
   testLlm: async (): Promise<string> => {
     const { model, label } = getModel(getSettings())

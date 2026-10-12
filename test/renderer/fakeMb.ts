@@ -1,5 +1,5 @@
 import { vi } from 'vitest'
-import type { MainEvents, Settings } from '@shared/types'
+import type { AppInfo, MainEvents, Settings } from '@shared/types'
 
 type Handler = (...args: any[]) => unknown
 
@@ -49,7 +49,16 @@ export const SETTINGS: Settings = {
   chunkSeconds: 30,
   selfName: 'Me',
   theme: 'system',
+  launchAtLogin: true,
   hasKey: {}
+}
+
+/** Settings › About in the installed app, with Windows startup working. */
+export const APP_INFO: AppInfo = {
+  version: '0.1.0',
+  packaged: true,
+  dataDir: String.raw`C:\Users\me\AppData\Roaming\MeetingBuddy`,
+  loginItem: { supported: true, willLaunch: true }
 }
 
 const NOW = '2026-10-07T10:00:00.000Z'
