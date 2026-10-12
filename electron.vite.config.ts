@@ -9,7 +9,8 @@ export default defineConfig({
   main: { resolve: { alias: shared } },
   preload: { resolve: { alias: shared } },
   renderer: {
-    resolve: { alias: shared },
+    // the renderer also reads the logo from resources/ (the same file the app icons are made from)
+    resolve: { alias: { ...shared, '@resources': resolve('resources') } },
     plugins: [react(), tailwindcss()]
   }
 })

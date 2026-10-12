@@ -14,6 +14,7 @@ Project context → meeting capture (no bot) → transcript → AI impact analys
 - **Project state board**: typed items with owners, due dates, versions and a per-item history showing who changed it, in which meeting, and the quote.
 - **Botless capture**: records your mic and your system audio as separate streams, so it works with Zoom, Teams, Google Meet in any browser, Slack, Discord and others.
 - **Meeting auto-detection**: watches which apps are using the microphone (Windows privacy registry) and offers to record. When the meeting app releases the mic, recording stops automatically.
+- **Starts with Windows**: the installed app opens quietly in the tray when you sign in, so meetings are detected without opening it first. You can turn this off in Settings › Recording and hotkeys.
 - **Global hotkeys**: `Ctrl+Shift+M` starts and stops recording; `Ctrl+Shift+D` marks an important moment, which the AI then weights more heavily.
 - **Live transcript** in roughly 30-second chunks, then a final full-file transcription for consistent speaker labels.
 - **Bring your own model**: Claude, OpenAI, Gemini, OpenRouter, Ollama (local) or any OpenAI-compatible server. Keys are encrypted with Windows DPAPI.
@@ -36,6 +37,7 @@ npm run dev          # run with hot reload
 npm test             # unit and pipeline tests
 npm run typecheck
 npm run dist:win     # build release/MeetingBuddy Setup x.y.z.exe
+npm run icons        # regenerate icons after changing resources/logo.svg
 ```
 
 Data is stored in `%APPDATA%\MeetingBuddy`:
@@ -66,4 +68,4 @@ Data is stored in `%APPDATA%\MeetingBuddy`:
 - There is no local (offline) speech-to-text yet. whisper.cpp is the planned option.
 - Speaker separation numbers voices; use **Map speakers** on a meeting page to assign real names.
 - The app is single-user. Team sync, roles and multi-recorder merging are planned for v2.
-- There is no app icon or code signing yet.
+- There is no code signing yet, so Windows SmartScreen warns on first install.

@@ -20,6 +20,7 @@ npm run lint                        # Biome lint
 npm run format                      # Biome format --write
 npm run check                       # Biome ci: lint + formatting check (runs in CI)
 npm run dist:win                    # build + electron-builder → release/MeetingBuddy Setup x.y.z.exe
+npm run icons                       # regenerate the app and tray icons from resources/logo.svg (output is committed)
 ```
 
 To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass `--user-data-dir=<dir>`, for example `npx electron . --user-data-dir=<dir> --remote-debugging-port=9333`. The remote-debugging port lets a CDP script drive the UI.
@@ -40,7 +41,7 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
 - **AI SDK v7:** `generateObject` is deprecated. Use `generateText({ instructions, prompt, output: Output.object({ schema }) })` and read `result.output`. Tests use `MockLanguageModelV4` from `ai/test`.
 - **npm 11 blocks install scripts** by default. `esbuild` and `electron-winstaller` were approved with `npm install-scripts approve`. Electron's install script is also blocked, so after a fresh install `node_modules/electron` has no `dist/` or `path.txt`, and `npm run dev` fails with `Error: Electron uninstall`. Fix it with `node node_modules/electron/install.js`, or permanently with `npm install-scripts approve electron`.
 - **`overrides.global-agent: ^4.1.3`** in `package.json` fixes `npm audit` (GHSA-hp3w-g68c-fv3c). electron-builder's `app-builder-lib` still pins `@electron/get@3`, which pulls in `global-agent@3` → `roarr@2` → a vulnerable `sprintf-js`; `global-agent@4` drops roarr and keeps the `bootstrap()` API that `@electron/get` calls. Don't override `@electron/get` itself to v5: it is ESM-only and `app-builder-lib` loads it with `require()`. Never run `npm audit fix --force`, because it downgrades electron-builder. Remove the override once electron-builder ships with `@electron/get` ≥ 4.
-- The `@shared/*` alias maps to `src/shared/*`. It is configured in `electron.vite.config.ts`, both tsconfigs and `vitest.config.ts`.
+- The `@shared/*` alias maps to `src/shared/*`. It is configured in `electron.vite.config.ts`, both tsconfigs and `vitest.config.ts`. The renderer (and Vitest) also has `@resources/*` → `resources/*`, for the logo.
 
 ## Architecture
 
@@ -129,6 +130,11 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
   - It covers only meetings that **started before** the one being analyzed, so re-analyzing an old meeting never sees later ones.
   - It includes the 5 most recent such meetings, with up to 20 change lines each.
 
+### Icons
+
+- `resources/logo.svg` is the single source. `npm run icons` (`scripts/build-icons.mjs`, with `@resvg/resvg-js`) renders `build/icon.png` (1024 px; electron-builder makes the .exe, installer and shortcut icons from it) and `resources/icons/`: `app.png` (window and notifications) and `tray`/`tray-recording` at 16/20/24/32 px as `@1.25x`/`@1.5x`/`@2x` files. The generated PNGs are committed; `test/icons.test.ts` checks their sizes and the packaging config.
+- `resources/icons` ships through electron-builder `extraResources` (outside the asar) and `src/main/icons.ts` loads it from `process.resourcesPath/icons` (or `resources/icons` from source), so Electron picks the right `@Nx` tray file. Don't switch to electron-vite `?asset` imports: they hash file names, which breaks the `@Nx` lookup.
+
 ### Data and settings
 
 - `db.ts` is a thin query layer over the `node:sqlite` `DatabaseSync`. Columns are snake_case and get mapped to the camelCase types in `src/shared/types.ts`.
@@ -148,6 +154,7 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
   - Both files are written atomically (a temp file, then a rename).
   - On read, unknown keys are dropped, and values that fail `SETTINGS_FIELDS` in `ipc.ts` fall back to their defaults. For example, `chunkSeconds` must be 0 or 10–120.
   - LLM and STT keys share one secrets map, keyed by provider id.
+  - `launchAtLogin` (default on) is applied with `applyLoginItem` in `settings.ts`. It writes a Windows Run entry with the `--hidden` argument (`startup.ts`), and a `--hidden` launch keeps the window hidden in the tray. Only the **installed** app touches the entry (`app.isPackaged` and Windows); running from source never does. At startup it only fixes a mismatch between the setting and the entry, so a startup app switched off in Task Manager stays off; a real change of the setting (not every Save, which sends all fields) or the **Turn back on** button (`api.enableLoginItem`) writes it with `enabled: true`. `api.getAppInfo` reports whether Windows will really launch it.
   - `theme` (`system`/`light`/`dark`) is applied with `nativeTheme.themeSource` (`applyTheme`, at startup and on save). The renderer only reads `prefers-color-scheme`, and the window's `backgroundColor` follows `nativeTheme`, so there's no flash at launch.
 - `llm.ts` builds the model from settings. OpenRouter, Ollama and custom endpoints all go through `@ai-sdk/openai-compatible`.
 - `stt.ts` calls Deepgram REST directly (with `diarize` only for the system stream) or an OpenAI-compatible `/audio/transcriptions` endpoint (OpenAI/Groq, without diarization).
@@ -191,4 +198,4 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
 
 - Windows only: the detector and loopback capture are Windows-specific.
 - No local speech-to-text yet (whisper.cpp is planned).
-- Single-user, with no app icon or code signing.
+- Single-user, with no code signing.

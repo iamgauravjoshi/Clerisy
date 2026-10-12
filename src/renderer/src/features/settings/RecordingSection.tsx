@@ -1,9 +1,24 @@
-import type { Settings } from '@shared/types'
-import { Field, Input, Kbd, Switch } from '../../components/ui'
+import type { AppInfo, Settings } from '@shared/types'
+import { Banner, Button, Field, Input, Kbd, Switch } from '../../components/ui'
+import { useAction } from '../../hooks/useAction'
 import { SettingsSection } from './SettingsSection'
 
-/** Who you are in transcripts, meeting detection, and the global hotkeys. */
-export function RecordingSection({ value, onChange }: { value: Settings; onChange: (patch: Partial<Settings>) => void }) {
+/** Who you are in transcripts, starting with Windows, meeting detection, and the global hotkeys. */
+export function RecordingSection({
+  value,
+  onChange,
+  loginItem,
+  startupBlocked,
+  onEnableStartup
+}: {
+  value: Settings
+  onChange: (patch: Partial<Settings>) => void
+  loginItem: AppInfo['loginItem']
+  // the saved setting is on, but Windows' startup apps list has MeetingBuddy switched off
+  startupBlocked: boolean
+  onEnableStartup: () => Promise<void>
+}) {
+  const enable = useAction()
   return (
     <SettingsSection id="settings-recording" title="Recording and hotkeys">
       <Field
@@ -18,6 +33,30 @@ export function RecordingSection({ value, onChange }: { value: Settings; onChang
         label="Detect meetings automatically"
         hint="Offers to record when Zoom, Teams, Meet in the browser, Slack, Discord, Webex and similar apps start using the microphone."
       />
+      <Switch
+        checked={value.launchAtLogin}
+        onChange={(launchAtLogin) => onChange({ launchAtLogin })}
+        disabled={!loginItem.supported}
+        label="Start MeetingBuddy when Windows starts"
+        hint={
+          loginItem.supported
+            ? 'Opens quietly in the tray when you sign in, so meetings are detected without opening the app first.'
+            : 'Available in the installed app. Running from source leaves Windows startup unchanged.'
+        }
+      />
+      {startupBlocked && (
+        <Banner
+          tone="warning"
+          actions={
+            <Button size="sm" loading={enable.busy} onClick={() => void enable.run(onEnableStartup)}>
+              Turn back on
+            </Button>
+          }
+        >
+          Windows has switched MeetingBuddy off in its startup apps, so it won't start when you sign in.
+          {enable.error && <span className="block text-danger-fg">{enable.error}</span>}
+        </Banner>
+      )}
       <div className="grid regular:grid-cols-2 gap-4">
         <Field label="Start or stop recording">
           <Input value={value.hotkeyRecord} onChange={(e) => onChange({ hotkeyRecord: e.target.value })} spellCheck={false} />

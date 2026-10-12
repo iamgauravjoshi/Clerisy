@@ -1,14 +1,11 @@
-import { AudioLines } from 'lucide-react'
+import logoUrl from '@resources/logo.svg'
 import { cn } from '../../lib/cn'
-import { Icon } from '../ui/Icon'
 
-const SIZES = { sm: 'size-8 rounded-md', lg: 'size-12 rounded-xl' }
+const SIZES = { sm: 'size-8', lg: 'size-12' }
 
-/** The MeetingBuddy mark: a sound wave on the brand green. Decorative; the name is always written next to it or hidden for screen readers. */
+/** The MeetingBuddy logo. Decorative; the name is always written next to it or hidden for screen readers. */
 export function BrandMark({ size = 'sm', className }: { size?: keyof typeof SIZES; className?: string }) {
   return (
-    <span aria-hidden className={cn('flex shrink-0 items-center justify-center bg-brand text-white', SIZES[size], className)}>
-      <Icon icon={AudioLines} size={size === 'lg' ? 'lg' : 'sm'} className={size === 'lg' ? 'size-6' : undefined} />
-    </span>
+    <img src={logoUrl} alt="" aria-hidden draggable={false} className={cn('shrink-0 select-none object-contain', SIZES[size], className)} />
   )
 }

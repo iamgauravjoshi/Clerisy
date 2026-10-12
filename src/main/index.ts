@@ -6,7 +6,6 @@ import {
   globalShortcut,
   ipcMain,
   Menu,
-  nativeImage,
   nativeTheme,
   Notification,
   session,
@@ -18,7 +17,9 @@ import { pathToFileURL } from 'node:url'
 import { openDb, recoverInterruptedMeetings } from './db'
 import { api, broadcast, removeOrphanedAudio, setShowMainWindow } from './api'
 import { MeetingDetector } from './detector'
-import { applyTheme, getSettings } from './settings'
+import { applyLoginItem, applyTheme, getSettings } from './settings'
+import { appIconPath, trayImage } from './icons'
+import { isHiddenLaunch } from './startup'
 import { isSafeExternalUrl, isTrustedAppUrl, parseApiArgs, RECORDING_STATE } from './ipc'
 import type { DetectedMeeting, RecordingState } from '@shared/types'
 
@@ -28,6 +29,8 @@ let quitting = false
 let quitPrompted = false
 let recording: RecordingState = { active: false, meetingId: null, projectId: null, startedAt: null }
 const detector = new MeetingDetector()
+// started by Windows at sign-in: stay in the tray until the user opens the window
+const startHidden = isHiddenLaunch(process.argv)
 // the only page this app loads; IPC, navigation, capture and permissions are limited to it
 const appUrl = process.env.ELECTRON_RENDERER_URL ?? pathToFileURL(join(__dirname, '../renderer/index.html')).href
 const fromApp = (frame: Electron.WebFrameMain | null | undefined): boolean => !!frame && isTrustedAppUrl(frame.url, appUrl)
@@ -53,6 +56,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     title: 'MeetingBuddy',
+    icon: appIconPath(),
     backgroundColor: canvasColor(),
     show: false,
     autoHideMenuBar: true,
@@ -64,7 +68,9 @@ function createWindow(): void {
       backgroundThrottling: false
     }
   })
-  win.once('ready-to-show', () => win?.show())
+  win.once('ready-to-show', () => {
+    if (!startHidden) win?.show()
+  })
   // closing the window keeps the app alive in the tray so meeting detection keeps working
   win.on('close', (e) => {
     if (!quitting) {
@@ -84,17 +90,10 @@ function createWindow(): void {
   else void win.loadFile(join(__dirname, '../renderer/index.html'))
 }
 
-function trayIcon(active: boolean): Electron.NativeImage {
-  // simple generated 16x16 dot icon: red while recording, blue otherwise
-  const color = active ? '#e5484d' : '#4f7cff'
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="13" fill="${color}"/><rect x="12" y="8" width="8" height="12" rx="4" fill="white"/><path d="M10 16a6 6 0 0 0 12 0" stroke="white" stroke-width="2" fill="none"/><rect x="15" y="22" width="2" height="4" fill="white"/></svg>`
-  return nativeImage.createFromDataURL(`data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`).resize({ width: 16, height: 16 })
-}
-
 function refreshTray(): void {
   if (!tray) return
   const s = getSettings()
-  tray.setImage(trayIcon(recording.active))
+  tray.setImage(trayImage(recording.active))
   tray.setToolTip(recording.active ? 'MeetingBuddy: recording' : 'MeetingBuddy')
   tray.setContextMenu(
     Menu.buildFromTemplate([
@@ -156,7 +155,8 @@ detector.on('start', (d: DetectedMeeting) => {
   if (!Notification.isSupported()) return
   const n = new Notification({
     title: `Meeting detected: ${d.app}`,
-    body: 'Click to record it and track what changes in your project.'
+    body: 'Click to record it and track what changes in your project.',
+    icon: appIconPath()
   })
   n.on('click', () => {
     showWindow()
@@ -257,9 +257,15 @@ app.whenReady().then(() => {
 
   // before the window exists, so it opens in the user's theme instead of flashing the other one
   applyTheme()
+  // match Windows' startup apps to the setting (installed app only)
+  try {
+    applyLoginItem()
+  } catch (e) {
+    console.warn('Could not update the Windows startup entry', e)
+  }
   nativeTheme.on('updated', () => win?.setBackgroundColor(canvasColor()))
   createWindow()
-  tray = new Tray(trayIcon(false))
+  tray = new Tray(trayImage(false))
   tray.on('click', showWindow)
   refreshTray()
   registerHotkeys()
