@@ -172,6 +172,10 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
   - `meetingAudioDir` only accepts meeting UUIDs, so an id from IPC can't reach paths outside it.
   - `api.deleteMeeting` and `api.deleteProject` delete the audio along with the rows. For a project, the meeting ids are collected before the cascade.
   - At startup, `removeOrphanedAudio` deletes UUID folders that have no meeting row.
+  - **Retention** (`audioRetention` setting, default `keep`, so existing recordings are never deleted by surprise):
+    - `transcribed`: `finishMeeting` deletes the audio right after the full-file transcription, but only when **no stream failed** and there is a transcript (`deleteAfterTranscription`). After a failure the audio stays, so **Transcribe recording** can retry.
+    - `7d` / `30d`: `sweepExpiredAudio` (pure rule: `expiredAudio`) deletes recordings of meetings that started before the cutoff. It runs at startup, every 6 h, and when the setting is saved, and it never touches a meeting that is `recording` or `transcribing`.
+    - Manual: `api.deleteRecording` (the meeting page's **Delete recording…**) and `api.deleteAllRecordings` (Settings), both refusing or skipping meetings in use. `api.getAudioUsage` reports the size. Transcripts and reports are never deleted by any of these.
 - `settings.ts` stores `settings.json` and `secrets.json` in userData.
   - API keys are encrypted with Electron `safeStorage` and never returned to the renderer. The renderer only sees `settings.hasKey`.
   - Both files are written atomically (a temp file, then a rename).

@@ -107,6 +107,22 @@ describe('meeting page', () => {
     expect(screen.getByText('Database is locked')).toBeTruthy()
   })
 
+  it('deletes only the recording after confirming, keeping the meeting', async () => {
+    const { invoke } = setup({ hasRecording: () => true, deleteRecording: () => undefined })
+    fireEvent.click(await screen.findByRole('button', { name: 'More actions' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Delete recording…' }))
+    expect(within(topDialog()).getByText(/can't be transcribed again/)).toBeTruthy()
+    await act(async () => fireEvent.click(within(topDialog()).getByRole('button', { name: 'Delete recording' })))
+    expect(calls(invoke, 'deleteRecording')).toEqual([['m1']])
+    expect(calls(invoke, 'deleteMeeting')).toEqual([])
+  })
+
+  it('offers to delete the recording only when there is one', async () => {
+    setup()
+    fireEvent.click(await screen.findByRole('button', { name: 'More actions' }))
+    expect(screen.queryByRole('menuitem', { name: 'Delete recording…' })).toBeNull()
+  })
+
   it('warns before re-analyzing a report that has decisions in it', async () => {
     const { invoke } = setup({ ...withProposals([{ ...PROPOSAL, status: 'rejected' }]), analyzeMeeting: () => undefined })
     fireEvent.click(await screen.findByRole('button', { name: 'Re-analyze' }))

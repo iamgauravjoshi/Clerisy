@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { act, cleanup, fireEvent, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AppInfo, Settings } from '@shared/types'
 import { SettingsPage } from '../../src/renderer/src/pages/SettingsPage'
 import { APP_INFO, fakeMb, SETTINGS } from './fakeMb'
+import { renderWithProviders } from './render'
 
 // The rebuilt Settings page (DESIGN.md §6.7): a save bar only when something changed, field-level validation,
 // keys saved through setSecret, and a theme that applies on its own.
@@ -18,13 +19,14 @@ function setup(overrides: Record<string, (...a: any[]) => unknown> = {}, initial
   const invoke = fakeMb({
     getSettings: () => stored,
     getAppInfo: () => ({ ...APP_INFO, ...info }),
+    getAudioUsage: () => ({ bytes: 0, meetings: 0 }),
     saveSettings: (patch: Partial<Settings>) => (stored = { ...stored, ...patch }),
     setSecret: (name: string, value: string) => (stored = { ...stored, hasKey: { ...stored.hasKey, [name]: !!value } }),
     testLlm: () => 'Anthropic replied: OK',
     ...overrides
   })
   const onSaved = vi.fn()
-  render(<SettingsPage onSaved={onSaved} />)
+  renderWithProviders(<SettingsPage onSaved={onSaved} />)
   return { invoke, onSaved }
 }
 
@@ -134,6 +136,31 @@ describe('settings page', () => {
     expect(patch.launchAtLogin).toBe(false)
     // the startup entry may have changed, so its status is read again
     expect(calls(invoke, 'getAppInfo')).toHaveLength(2)
+  })
+
+  it('saves how long recordings are kept like any other setting', async () => {
+    const { invoke } = setup()
+    fireEvent.change(await screen.findByLabelText('Keep recordings'), { target: { value: 'transcribed' } })
+    await act(async () => fireEvent.click(within(saveBar()!).getByRole('button', { name: 'Save changes' })))
+    const [[patch]] = calls(invoke, 'saveSettings') as [[Record<string, unknown>]]
+    expect(patch.audioRetention).toBe('transcribed')
+  })
+
+  it('shows the space recordings use, and deletes them all after confirming', async () => {
+    let usage = { bytes: 245 * 1024 * 1024, meetings: 12 }
+    const { invoke } = setup({
+      getAudioUsage: () => usage,
+      deleteAllRecordings: () => {
+        usage = { bytes: 0, meetings: 0 }
+        return 12
+      }
+    })
+    expect(await screen.findByText('Recordings use 245 MB for 12 meetings.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Delete all recordings…' }))
+    const dialog = (await screen.findByRole('heading', { name: 'Delete all recordings?' })).closest('dialog') as HTMLElement
+    await act(async () => fireEvent.click(within(dialog).getByRole('button', { name: 'Delete recordings' })))
+    expect(calls(invoke, 'deleteAllRecordings')).toEqual([[]])
+    expect(await screen.findByText('No recordings are stored.')).toBeTruthy()
   })
 
   it('saves the automatic update check like any other setting', async () => {

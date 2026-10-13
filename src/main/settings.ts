@@ -21,7 +21,9 @@ const DEFAULTS: StoredSettings = {
   selfName: 'Me',
   theme: 'system',
   launchAtLogin: true,
-  autoUpdate: true
+  autoUpdate: true,
+  // never delete existing recordings by surprise
+  audioRetention: 'keep'
 }
 
 const settingsFile = (): string => join(app.getPath('userData'), 'settings.json')

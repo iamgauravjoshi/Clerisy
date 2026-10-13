@@ -10,7 +10,7 @@ import { Updater } from './updater'
 import { checkUploadSize, CHUNK_TIMEOUT_MS, FILE_TIMEOUT_MS, isEcho, mergeStreams, transcribe } from './stt'
 import { parseTranscript } from './transcriptParser'
 import { getModel } from './llm'
-import { deleteMeetingAudio, meetingAudioDir, sweepOrphanedAudio } from './audio'
+import { audioUsage, deleteAfterTranscription, deleteMeetingAudio, expiredAudio, meetingAudioDir, sweepOrphanedAudio } from './audio'
 import { generateText } from 'ai'
 import type { ShareFormat, ShareOptions } from '@shared/reportExport'
 import { copyShare, exportShare, previewShare, revealLastExport } from './share'
@@ -22,6 +22,19 @@ const audioDir = (meetingId: string): string => meetingAudioDir(audioRoot(), mee
 export function removeOrphanedAudio(): void {
   sweepOrphanedAudio(audioRoot(), new Set(db.listMeetingIds()))
 }
+
+/** Deletes recordings past the retention period (Settings › Recording). Runs at startup, every few hours, and on a change of the setting. */
+export function sweepExpiredAudio(): string[] {
+  const expired = expiredAudio(audioRoot(), db.listMeetingAges(), getSettings().audioRetention)
+  for (const id of expired) {
+    deleteMeetingAudio(audioRoot(), id)
+    broadcast('meeting:changed', id)
+  }
+  return expired
+}
+
+// recording or transcribing: its audio is still being written or read
+const audioInUse = (meetingId: string): boolean => ['recording', 'transcribing'].includes(db.getMeeting(meetingId)?.status ?? '')
 
 function deleteMeeting(meetingId: string): void {
   db.deleteMeeting(meetingId)
@@ -94,6 +107,8 @@ async function finishMeeting(meetingId: string): Promise<void> {
       db.updateMeeting(meetingId, { status: 'transcribing', error: null })
       broadcast('meeting:changed', meetingId)
       errors = await transcribeRecordings(s, meetingId)
+      // with nothing failed, the transcript replaces the audio; after a failure it stays so it can be transcribed again
+      if (deleteAfterTranscription(s.audioRetention, errors, db.listSegments(meetingId).length)) deleteMeetingAudio(audioRoot(), meetingId)
     }
     db.updateMeeting(meetingId, { status: 'ready', error: errors.length ? `Transcription failed for ${errors.join('; ')}` : null })
     broadcast('meeting:changed', meetingId)
@@ -129,7 +144,12 @@ async function finishMeeting(meetingId: string): Promise<void> {
 export const api = {
   // settings
   getSettings: (): Settings => getSettings(),
-  saveSettings: (patch: Partial<Omit<Settings, 'hasKey'>>): Settings => saveSettings(patch),
+  saveSettings: (patch: Partial<Omit<Settings, 'hasKey'>>): Settings => {
+    const saved = saveSettings(patch)
+    // a shorter retention period applies straight away, not at the next sweep
+    if (patch.audioRetention) sweepExpiredAudio()
+    return saved
+  },
   setSecret: (name: LlmProvider | SttProvider, value: string): Settings => {
     setSecret(name, value)
     return getSettings()
@@ -286,6 +306,18 @@ export const api = {
     if (!STREAMS.includes(source)) throw new Error(`Unknown audio source: ${source}`)
     mkdirSync(audioDir(meetingId), { recursive: true })
     appendFileSync(streamFile(meetingId, source), Buffer.from(data))
+  },
+  getAudioUsage: () => audioUsage(audioRoot()),
+  /** Deletes one meeting's recording; its transcript and report stay. */
+  deleteRecording: (meetingId: string): void => {
+    if (audioInUse(meetingId)) throw new Error('This recording is still being recorded or transcribed.')
+    deleteMeetingAudio(audioRoot(), meetingId)
+  },
+  /** Deletes every recording that isn't in use, and returns how many meetings lost theirs. */
+  deleteAllRecordings: (): number => {
+    const ids = db.listMeetingIds().filter((id) => !audioInUse(id) && existsSync(audioDir(id)))
+    for (const id of ids) deleteMeetingAudio(audioRoot(), id)
+    return ids.length
   },
   hasRecording: (meetingId: string): boolean =>
     STREAMS.some((src) => existsSync(streamFile(meetingId, src)) && statSync(streamFile(meetingId, src)).size > 0),

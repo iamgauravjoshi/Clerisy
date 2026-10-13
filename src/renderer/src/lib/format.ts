@@ -47,3 +47,11 @@ export function daysUntil(due: string, now = new Date()): number | null {
   if (!m) return null
   return Math.round((new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])).getTime() - startOfDay(now)) / 86400000)
 }
+
+/** A file size for people: "0 MB", "850 KB", "245 MB", "1.3 GB". */
+export function fmtBytes(bytes: number): string {
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(1)} GB`
+  if (bytes >= 1024 ** 2) return `${Math.round(bytes / 1024 ** 2)} MB`
+  if (bytes > 0) return `${Math.max(1, Math.round(bytes / 1024))} KB`
+  return '0 MB'
+}

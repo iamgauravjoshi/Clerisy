@@ -46,7 +46,8 @@ export const SETTINGS_FIELDS = {
   selfName: z.string().max(100),
   theme: z.enum(['system', 'light', 'dark']),
   launchAtLogin: z.boolean(),
-  autoUpdate: z.boolean()
+  autoUpdate: z.boolean(),
+  audioRetention: z.enum(['keep', 'transcribed', '7d', '30d'])
 }
 
 /** Argument schemas for every api function, in order. The type check below makes a missing or mismatched schema a compile error. */
@@ -98,6 +99,9 @@ export const API_ARGS = {
   startRecording: z.tuple([id, short, short]),
   recordingChunk: z.tuple([id, source, seconds, bytes]),
   appendRecordingChunk: z.tuple([id, source, bytes]),
+  getAudioUsage: z.tuple([]),
+  deleteRecording: z.tuple([id]),
+  deleteAllRecordings: z.tuple([]),
   hasRecording: z.tuple([id]),
   transcribeRecording: z.tuple([id]),
   addMark: z.tuple([id, seconds, short]),

@@ -1,6 +1,7 @@
 import type { AppInfo, Settings } from '@shared/types'
 import { Banner, Button, Field, Input, Kbd, Switch } from '../../components/ui'
 import { useAction } from '../../hooks/useAction'
+import { RecordingsPanel } from './RecordingsPanel'
 import { SettingsSection } from './SettingsSection'
 
 /** Who you are in transcripts, starting with Windows, meeting detection, and the global hotkeys. */
@@ -57,6 +58,7 @@ export function RecordingSection({
           {enable.error && <span className="block text-danger-fg">{enable.error}</span>}
         </Banner>
       )}
+      <RecordingsPanel value={value.audioRetention} onChange={(audioRetention) => onChange({ audioRetention })} />
       <div className="grid regular:grid-cols-2 gap-4">
         <Field label="Start or stop recording">
           <Input value={value.hotkeyRecord} onChange={(e) => onChange({ hotkeyRecord: e.target.value })} spellCheck={false} />
