@@ -127,7 +127,9 @@ export const API_ARGS = {
   previewShare: z.tuple([id, shareFormat, shareOptions]),
   copyShare: z.tuple([id, shareFormat, shareOptions]),
   exportShare: z.tuple([id, z.enum(['markdown', 'pdf']), shareOptions]),
-  revealLastExport: z.tuple([])
+  revealLastExport: z.tuple([]),
+  getLocalSttStatus: z.tuple([]),
+  testLocalStt: z.tuple([])
 } satisfies { [K in keyof Api]: z.ZodType<Parameters<Api[K]>> }
 
 /** The arguments of a main→main recording-state report from the renderer. */

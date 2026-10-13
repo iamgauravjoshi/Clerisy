@@ -18,6 +18,7 @@ import { pathToFileURL } from 'node:url'
 import { openDb, recoverInterruptedMeetings } from './db'
 import { api, broadcast, removeOrphanedAudio, setShowMainWindow, setUpdater, sweepExpiredAudio } from './api'
 import { Updater } from './updater'
+import { stopLocalStt } from './localStt'
 import { MeetingDetector } from './detector'
 import { applyLoginItem, applyTheme, getSettings } from './settings'
 import { appIconPath, trayImage } from './icons'
@@ -345,6 +346,7 @@ app.on('will-quit', () => {
   globalShortcut.unregisterAll()
   detector.stop()
   updater?.stop()
+  stopLocalStt()
 })
 app.on('window-all-closed', () => {
   // stay in the tray
