@@ -22,6 +22,7 @@ Project context → meeting capture (no bot) → transcript → AI impact analys
 - **Meeting Impact Report**:
   - Covers new and changed requirements, decisions, action items, scope and timeline changes, risks and blockers, open questions, and conflicts with the existing state.
   - Each change shows its speaker, impact level, firm or tentative status, and quotes. Clicking a quote jumps to the transcript.
+- **Share the report**: copy it as a Slack or WhatsApp message or as Markdown, or save it as a Markdown file or PDF. You can share only the approved changes, or everything proposed, with or without the evidence quotes and the full transcript.
 - **Hallucination guard**: every proposed change must quote the transcript. Quotes are checked in code, and changes with no real evidence are discarded.
 - **Approval flow**:
   - Accept, edit or reject each change. _Accept all firm_ accepts every firm change at once.

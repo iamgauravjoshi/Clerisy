@@ -1,5 +1,5 @@
 import type { Meeting, Proposal } from '@shared/types'
-import { Ellipsis, Pencil, RefreshCw, Sparkles, Trash2, Users } from 'lucide-react'
+import { Ellipsis, Pencil, RefreshCw, Share2, Sparkles, Trash2, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { api, errMsg } from '../api'
 import { MeetingStatusBadge } from '../components/domain'
@@ -8,6 +8,7 @@ import { Badge, Banner, Button, buttonVariants, Icon, Menu, Skeleton, Tabs, Time
 import { EditProposalDialog, RenameMeetingDialog, SpeakerMapDialog } from '../features/meeting/dialogs'
 import { ImpactReport, orderedProposals } from '../features/meeting/ImpactReport'
 import { PipelineStepper } from '../features/meeting/PipelineStepper'
+import { ShareReportDialog } from '../features/meeting/ShareReportDialog'
 import { type Jump, TranscriptPane } from '../features/meeting/TranscriptPane'
 import { firmProposals, useMeetingData } from '../features/meeting/useMeetingData'
 import { useHotkey } from '../hooks/useHotkey'
@@ -42,6 +43,7 @@ export function MeetingPage(props: {
   const [editing, setEditing] = useState<Proposal | null>(null)
   const [mapSpeakers, setMapSpeakers] = useState(false)
   const [renaming, setRenaming] = useState(false)
+  const [sharing, setSharing] = useState(false)
   const [skipped, setSkipped] = useState<{ proposalId: string; title: string; reason: string }[]>([])
   const confirm = useConfirm()
 
@@ -237,6 +239,11 @@ export function MeetingPage(props: {
                 Map speakers
               </Button>
             )}
+            {report && (
+              <Button icon={Share2} onClick={() => setSharing(true)}>
+                Share
+              </Button>
+            )}
             <Button
               variant={report ? 'secondary' : 'primary'}
               icon={report ? RefreshCw : Sparkles}
@@ -353,6 +360,7 @@ export function MeetingPage(props: {
           }}
         />
       )}
+      {sharing && report && <ShareReportDialog meetingId={meeting.id} proposals={proposals} onClose={() => setSharing(false)} />}
       {renaming && (
         <RenameMeetingDialog
           title={meeting.title}

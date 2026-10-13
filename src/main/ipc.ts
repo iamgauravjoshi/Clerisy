@@ -12,6 +12,8 @@ const bytes = z.instanceof(Uint8Array).refine((b) => b.byteLength <= 50 * 1024 *
 const seconds = z.number().finite().min(0)
 const source = z.enum(['mic', 'system'])
 const itemType = z.enum(ITEM_TYPES)
+const shareFormat = z.enum(['markdown', 'slack', 'whatsapp'])
+const shareOptions = z.strictObject({ scope: z.enum(['approved', 'all']), evidence: z.boolean(), transcript: z.boolean() })
 const itemStatus = z.enum(['open', 'done', 'superseded', 'cancelled'])
 const llmProvider = z.enum(['anthropic', 'openai', 'google', 'openrouter', 'ollama', 'openai-compatible'])
 const sttProvider = z.enum(['none', 'deepgram', 'openai', 'groq'])
@@ -116,7 +118,12 @@ export const API_ARGS = {
       })
       .partial()
   ]),
-  applyApproved: z.tuple([id])
+  applyApproved: z.tuple([id]),
+
+  previewShare: z.tuple([id, shareFormat, shareOptions]),
+  copyShare: z.tuple([id, shareFormat, shareOptions]),
+  exportShare: z.tuple([id, z.enum(['markdown', 'pdf']), shareOptions]),
+  revealLastExport: z.tuple([])
 } satisfies { [K in keyof Api]: z.ZodType<Parameters<Api[K]>> }
 
 /** The arguments of a main→main recording-state report from the renderer. */

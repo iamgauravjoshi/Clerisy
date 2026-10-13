@@ -12,6 +12,8 @@ import { parseTranscript } from './transcriptParser'
 import { getModel } from './llm'
 import { deleteMeetingAudio, meetingAudioDir, sweepOrphanedAudio } from './audio'
 import { generateText } from 'ai'
+import type { ShareFormat, ShareOptions } from '@shared/reportExport'
+import { copyShare, exportShare, previewShare, revealLastExport } from './share'
 
 const audioRoot = (): string => join(app.getPath('userData'), 'audio')
 const audioDir = (meetingId: string): string => meetingAudioDir(audioRoot(), meetingId)
@@ -306,6 +308,13 @@ export const api = {
   // analysis & approval
   analyzeMeeting: (meetingId: string) => analyzeMeeting(meetingId),
   getReport: (meetingId: string) => db.getReport(meetingId),
+
+  // sharing the Impact Report
+  previewShare: (meetingId: string, format: ShareFormat, options: ShareOptions) => previewShare(meetingId, format, options),
+  copyShare: (meetingId: string, format: ShareFormat, options: ShareOptions) => copyShare(meetingId, format, options),
+  exportShare: (meetingId: string, kind: 'markdown' | 'pdf', options: ShareOptions) => exportShare(meetingId, kind, options),
+  revealLastExport: () => revealLastExport(),
+
   updateProposal: (id: string, patch: Partial<Pick<Proposal, 'status' | 'title' | 'body' | 'owner' | 'dueDate' | 'itemType'>>) => {
     // only applyApproved marks proposals applied, and what was applied stays as it was
     if (patch.status === 'applied') throw new Error('Proposals are marked applied only by applying them.')
