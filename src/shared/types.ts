@@ -240,6 +240,21 @@ export interface LocalModelStatus {
     | { state: 'error'; message: string }
 }
 
+/**
+ * How far one recorded stream's final transcription has got, for the meeting page.
+ * Local transcription counts speech segments (`total` is 0 while the model loads and finds the speech); a cloud request can't report progress.
+ */
+export type StreamProgress =
+  | { stage: 'waiting' }
+  | { stage: 'decoding' }
+  | { stage: 'transcribing'; done: number; total: number }
+  | { stage: 'sending'; provider: CloudSttProvider }
+  | { stage: 'done' }
+  | { stage: 'failed' }
+
+/** A meeting's final transcription, by stream; a stream with no recording is left out. */
+export type TranscriptionProgress = Partial<Record<'mic' | 'system', StreamProgress>>
+
 export interface DetectedMeeting {
   app: string
   exe: string
@@ -266,6 +281,8 @@ export interface MainEvents {
   'app:quit-requested': []
   'update:status': [status: UpdateStatus]
   'localModel:status': [status: LocalModelStatus]
+  /** null once the final transcription is over */
+  'meeting:progress': [meetingId: string, progress: TranscriptionProgress | null]
 }
 
 // a Record must name every event exactly once, so the preload's allow-list can't drift from MainEvents
@@ -279,7 +296,8 @@ const EVENT_NAMES: Record<keyof MainEvents, true> = {
   'navigate:meeting': true,
   'app:quit-requested': true,
   'update:status': true,
-  'localModel:status': true
+  'localModel:status': true,
+  'meeting:progress': true
 }
 /** The channels the preload lets the renderer subscribe to. */
 export const MAIN_EVENTS = Object.keys(EVENT_NAMES) as (keyof MainEvents)[]

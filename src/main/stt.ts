@@ -1,5 +1,5 @@
 import { deepgramLanguage, routeStt, whisperLanguage } from '@shared/sttRouting'
-import type { CloudSttProvider, Segment, SegmentSource, Settings, SttLanguage, SttProvider } from '@shared/types'
+import type { CloudSttProvider, Segment, SegmentSource, Settings, SttLanguage, SttProvider, StreamProgress } from '@shared/types'
 import { getSecret } from './settings'
 
 export type RawSegment = Omit<Segment, 'id' | 'meetingId' | 'idx'>
@@ -39,6 +39,12 @@ const EXTENSION: Record<string, string> = {
   'video/mp4': 'mp4'
 }
 
+export interface TranscribeOptions {
+  /** a live preview chunk of this stream (e.g. `<meetingId>:mic`); local transcription may skip it for a newer one */
+  liveKey?: string
+  onProgress?: (p: StreamProgress) => void
+}
+
 /**
  * Transcribes one audio file (webm/opus from MediaRecorder) with the service routeStt picks for the meeting language.
  * The mic stream is always the local user; the system stream contains everyone else.
@@ -49,7 +55,8 @@ export async function transcribe(
   mime: string,
   source: SegmentSource,
   offsetSec: number,
-  timeoutMs: number
+  timeoutMs: number,
+  { liveKey, onProgress }: TranscribeOptions = {}
 ): Promise<RawSegment[]> {
   const route = routeStt(s)
   if (route.provider === 'none') return []
@@ -57,9 +64,11 @@ export async function transcribe(
   if (route.provider === 'local') {
     // loaded on demand: it brings in Electron and the worker; the engine has its own timeout, scaled to the audio
     const { transcribeLocal } = await import('./localStt')
-    return transcribeLocal(new Uint8Array(audio.buffer, audio.byteOffset, audio.byteLength), source, offsetSec, s.selfName)
+    const bytes = new Uint8Array(audio.buffer, audio.byteOffset, audio.byteLength)
+    return transcribeLocal(bytes, source, offsetSec, s.selfName, { liveKey, onProgress })
   }
   checkUploadSize(route.provider, audio.byteLength)
+  onProgress?.({ stage: 'sending', provider: route.provider })
   const signal = AbortSignal.timeout(timeoutMs)
   try {
     return await request(s, route.provider, route.language, audio, mime, source, offsetSec, signal)

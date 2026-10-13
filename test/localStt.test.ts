@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { threadCount } from '../src/main/localStt/core'
-import { IDLE_MS, jobTimeout, LocalSttEngine, type WorkerHandle } from '../src/main/localStt/engine'
+import { DroppedJobError, IDLE_MS, jobTimeout, LocalSttEngine, type WorkerHandle } from '../src/main/localStt/engine'
 import { LOCAL_MODELS, missingModelFiles, modelFiles, resolveModel, VAD_FILE } from '../src/main/localStt/models'
 import type { TranscribeRequest, WorkerMessage } from '../src/main/localStt/protocol'
 import { testWav, toRawSegments } from '../src/main/localStt/util'
@@ -94,8 +94,10 @@ describe('local transcription engine', () => {
     const e = engine()
     expect(workers).toHaveLength(0)
     const progress = vi.fn()
-    const job = e.transcribe(MODEL, seconds(2), progress)
+    const started = vi.fn()
+    const job = e.transcribe(MODEL, seconds(2), { onProgress: progress, onStart: started })
     const w = workers[0]
+    expect(started).toHaveBeenCalledOnce()
     expect(w.requests[0]).toMatchObject({ type: 'transcribe', id: 1, model: MODEL })
     w.reply({ type: 'progress', id: 1, done: 3, total: 10 })
     w.reply({ type: 'result', id: 1, lines: [{ start: 0, end: 1, text: 'hello there' }], stats: STATS })
@@ -160,6 +162,57 @@ describe('local transcription engine', () => {
     expect(workers[0].killed).toBe(false)
     await vi.advanceTimersByTimeAsync(1)
     expect(workers[0].killed).toBe(true)
+  })
+
+  describe('live preview chunks', () => {
+    const live = (e: LocalSttEngine, key: string) => e.transcribe(MODEL, seconds(1), { priority: 'live', liveKey: key })
+    const answer = (w: FakeWorker, id: number) => w.reply({ type: 'result', id, lines: [], stats: STATS })
+
+    it('keeps only the newest waiting chunk of each stream, so a slow computer skips previews', async () => {
+      const e = engine()
+      const running = live(e, 'm:mic')
+      const older = live(e, 'm:mic')
+      const system = live(e, 'm:system')
+      const newer = live(e, 'm:mic')
+      await expect(older).rejects.toBeInstanceOf(DroppedJobError)
+      const w = workers[0]
+      answer(w, 1)
+      await running
+      expect(w.requests.map((r) => r.id)).toEqual([1, 3])
+      answer(w, 3)
+      await system
+      answer(w, 4)
+      await newer
+    })
+
+    it('drops waiting previews when the final pass arrives, and runs it next', async () => {
+      const e = engine()
+      const running = live(e, 'm:mic')
+      const waiting = live(e, 'm:system')
+      const final = e.transcribe(MODEL, seconds(1))
+      await expect(waiting).rejects.toBeInstanceOf(DroppedJobError)
+      const w = workers[0]
+      answer(w, 1)
+      await running // the chunk already running finishes normally
+      expect(w.requests.map((r) => r.id)).toEqual([1, 3])
+      answer(w, 3)
+      await final
+    })
+
+    it('never drops a final job for a live one', async () => {
+      const e = engine()
+      const a = e.transcribe(MODEL, seconds(1))
+      const b = e.transcribe(MODEL, seconds(1))
+      const chunk = live(e, 'm:mic')
+      const w = workers[0]
+      answer(w, 1)
+      await a
+      answer(w, 2)
+      await b
+      answer(w, 3)
+      await chunk
+      expect(w.requests.map((r) => r.id)).toEqual([1, 2, 3])
+    })
   })
 
   it('fails every job and stops the worker when disposed', async () => {

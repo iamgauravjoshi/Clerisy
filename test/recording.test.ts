@@ -14,10 +14,23 @@ const transcribe = vi.hoisted(() => vi.fn())
 const analyzeMeeting = vi.hoisted(() => vi.fn(async () => null))
 // channels broadcast to the (fake) app window
 const sent = vi.hoisted(() => [] as string[])
+// meeting:progress payloads, in order
+const progressSent = vi.hoisted(() => [] as unknown[])
 
 vi.mock('electron', () => ({
   app: { getPath: () => userData },
-  BrowserWindow: { getAllWindows: () => [{ webContents: { send: (channel: string) => sent.push(channel) } }] },
+  BrowserWindow: {
+    getAllWindows: () => [
+      {
+        webContents: {
+          send: (channel: string, ...args: unknown[]) => {
+            sent.push(channel)
+            if (channel === 'meeting:progress') progressSent.push(args[1])
+          }
+        }
+      }
+    ]
+  },
   Notification: { isSupported: () => false },
   dialog: { showOpenDialog: vi.fn() }
 }))
@@ -79,7 +92,9 @@ describe('live chunks', () => {
     const m = api.startRecording(projectId, 'T', '')
     transcribe.mockResolvedValueOnce([])
     await api.recordingChunk(m.id, 'mic', 30, bytes('x'))
-    expect(transcribe).toHaveBeenCalledWith(settings, expect.anything(), 'audio/webm', 'mic', 30, CHUNK_TIMEOUT_MS)
+    expect(transcribe).toHaveBeenCalledWith(settings, expect.anything(), 'audio/webm', 'mic', 30, CHUNK_TIMEOUT_MS, {
+      liveKey: `${m.id}:mic`
+    })
   })
   it('drops a chunk whose transcription finishes after recording stopped', async () => {
     const m = api.startRecording(projectId, 'T', '')
@@ -141,7 +156,30 @@ describe('finishing a meeting', () => {
     await settled(id)
     expect(texts(id).sort()).toEqual(['final mic echo foxtrot', 'final system golf hotel'])
     expect(db.getMeeting(id)?.error).toBeNull()
-    expect(transcribe).toHaveBeenLastCalledWith(settings, expect.anything(), 'audio/webm', 'system', 0, FILE_TIMEOUT_MS)
+    expect(transcribe).toHaveBeenLastCalledWith(settings, expect.anything(), 'audio/webm', 'system', 0, FILE_TIMEOUT_MS, {
+      onProgress: expect.any(Function)
+    })
+  })
+
+  it('reports each stream’s progress while transcribing, and clears it afterwards', async () => {
+    const id = await recorded()
+    progressSent.length = 0
+    let finishMic!: (v: unknown) => void
+    transcribe
+      .mockImplementationOnce(async (...args: unknown[]) => {
+        const { onProgress } = args[6] as { onProgress: (p: unknown) => void }
+        onProgress({ stage: 'transcribing', done: 2, total: 8 })
+        return new Promise((r) => (finishMic = r))
+      })
+      .mockRejectedValueOnce(new Error('Deepgram error 500'))
+    api.stopRecording(id)
+    await vi.waitFor(() => expect(api.getMeetingProgress(id)?.system).toEqual({ stage: 'failed' }))
+    expect(api.getMeetingProgress(id)?.mic).toEqual({ stage: 'transcribing', done: 2, total: 8 })
+    expect(progressSent[0]).toEqual({ mic: { stage: 'waiting' }, system: { stage: 'waiting' } })
+    finishMic([said('final mic echo foxtrot', 'mic')])
+    await settled(id)
+    expect(api.getMeetingProgress(id)).toBeNull()
+    expect(progressSent.slice(-2)).toEqual([{ mic: { stage: 'done' }, system: { stage: 'failed' } }, null])
   })
 
   it('keeps the live transcript of a stream whose full transcription failed', async () => {

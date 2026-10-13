@@ -1,17 +1,17 @@
 import { app, net, utilityProcess } from 'electron'
 import { join } from 'node:path'
-import type { LocalModelStatus, SegmentSource } from '@shared/types'
+import type { LocalModelStatus, SegmentSource, StreamProgress } from '@shared/types'
 import type { RawSegment } from '../stt'
 import { SAMPLE_RATE } from './core'
-import { decodeAudio } from './decode'
+import { closeDecoder, decodeAudio } from './decode'
 import { bytesToDownload, checkFreeSpace, deleteFiles, downloadFiles } from './download'
-import { LocalSttEngine, type Progress, type WorkerHandle } from './engine'
+import { DroppedJobError, LocalSttEngine, type WorkerHandle } from './engine'
 import { LOCAL_MODELS, type LocalModelId, missingModelFiles, modelBytes, modelDownloads, resolveModel } from './models'
 import { testWav, toRawSegments } from './util'
 import workerPath from './worker?modulePath'
 
 // Local (offline, free) speech-to-text: decode in a hidden window, transcribe in a utilityProcess with sherpa-onnx.
-// Recordings and imports use it through stt.ts, as the `local` provider.
+// Recordings use it through stt.ts: live preview chunks queue behind (and give way to) the final pass.
 
 export const modelsRoot = (): string => join(app.getPath('userData'), 'models')
 
@@ -21,25 +21,47 @@ const getEngine = (): LocalSttEngine =>
     spawn: () => utilityProcess.fork(workerPath, [], { serviceName: 'MeetingBuddy transcription' }) as unknown as WorkerHandle
   }))
 
-/** Stops the worker; on quit. */
+/** Stops the worker and closes the decoder window; on quit. */
 export function stopLocalStt(): void {
   engine?.dispose()
   engine = null
+  closeDecoder()
 }
 
-/** Transcribes a recording's bytes on this computer. */
+export interface LocalOptions {
+  modelId?: LocalModelId
+  onProgress?: (p: StreamProgress) => void
+  /** a live preview chunk of this stream (e.g. `<meetingId>:mic`): it may be dropped for a newer one */
+  liveKey?: string
+}
+
+/**
+ * Transcribes a recording's bytes on this computer. A live preview chunk that a newer chunk (or the meeting's
+ * final pass) replaced in the queue resolves with no lines.
+ */
 export async function transcribeLocal(
   audio: Uint8Array,
   source: SegmentSource,
   offsetSec: number,
   selfName: string,
-  modelId: LocalModelId = 'parakeet-en',
-  onProgress?: Progress
+  { modelId = 'parakeet-en', onProgress, liveKey }: LocalOptions = {}
 ): Promise<RawSegment[]> {
   const model = resolveModel(modelsRoot(), modelId)
+  onProgress?.({ stage: 'decoding' })
   const samples = await decodeAudio(audio)
-  const { lines } = await getEngine().transcribe(model, samples, onProgress)
-  return toRawSegments(lines, source, offsetSec, selfName)
+  onProgress?.({ stage: 'waiting' })
+  try {
+    const { lines } = await getEngine().transcribe(model, samples, {
+      priority: liveKey ? 'live' : 'final',
+      liveKey,
+      onStart: () => onProgress?.({ stage: 'transcribing', done: 0, total: 0 }),
+      onProgress: (done, total) => onProgress?.({ stage: 'transcribing', done, total })
+    })
+    return toRawSegments(lines, source, offsetSec, selfName)
+  } catch (e) {
+    if (e instanceof DroppedJobError) return []
+    throw e
+  }
 }
 
 /**

@@ -106,6 +106,7 @@ export const API_ARGS = {
   deleteAllRecordings: z.tuple([]),
   hasRecording: z.tuple([id]),
   transcribeRecording: z.tuple([id]),
+  getMeetingProgress: z.tuple([id]),
   addMark: z.tuple([id, seconds, short]),
   stopRecording: z.tuple([id]),
 
