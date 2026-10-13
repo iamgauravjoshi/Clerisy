@@ -14,6 +14,7 @@ import { audioUsage, deleteAfterTranscription, deleteMeetingAudio, expiredAudio,
 import { generateText } from 'ai'
 import type { ShareFormat, ShareOptions } from '@shared/reportExport'
 import { copyShare, exportShare, previewShare, revealLastExport } from './share'
+import { localSttStatus, testLocalStt } from './localStt'
 
 const audioRoot = (): string => join(app.getPath('userData'), 'audio')
 const audioDir = (meetingId: string): string => meetingAudioDir(audioRoot(), meetingId)
@@ -340,6 +341,10 @@ export const api = {
   // analysis & approval
   analyzeMeeting: (meetingId: string) => analyzeMeeting(meetingId),
   getReport: (meetingId: string) => db.getReport(meetingId),
+
+  // local (offline) speech-to-text: whether the model is installed, and a self-test of the whole path
+  getLocalSttStatus: () => localSttStatus(),
+  testLocalStt: () => testLocalStt(),
 
   // sharing the Impact Report
   previewShare: (meetingId: string, format: ShareFormat, options: ShareOptions) => previewShare(meetingId, format, options),

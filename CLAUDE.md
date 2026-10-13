@@ -41,6 +41,7 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
 - **AI SDK v7:** `generateObject` is deprecated. Use `generateText({ instructions, prompt, output: Output.object({ schema }) })` and read `result.output`. Tests use `MockLanguageModelV4` from `ai/test`.
 - **npm 11 blocks install scripts** by default. `esbuild` and `electron-winstaller` were approved with `npm install-scripts approve`. Electron's install script is also blocked, so after a fresh install `node_modules/electron` has no `dist/` or `path.txt`, and `npm run dev` fails with `Error: Electron uninstall`. Fix it with `node node_modules/electron/install.js`, or permanently with `npm install-scripts approve electron`.
 - **`overrides.global-agent: ^4.1.3`** in `package.json` fixes `npm audit` (GHSA-hp3w-g68c-fv3c). electron-builder's `app-builder-lib` still pins `@electron/get@3`, which pulls in `global-agent@3` → `roarr@2` → a vulnerable `sprintf-js`; `global-agent@4` drops roarr and keeps the `bootstrap()` API that `@electron/get` calls. Don't override `@electron/get` itself to v5: it is ESM-only and `app-builder-lib` loads it with `require()`. Never run `npm audit fix --force`, because it downgrades electron-builder. Remove the override once electron-builder ships with `@electron/get` ≥ 4.
+- **sherpa-onnx-node** (local speech-to-text) is a native addon. Its `sherpa-onnx-win-x64` package (the `.node` file and ONNX Runtime DLLs) must stay in `build.asarUnpack`, because native code can't load from inside the asar. It has no install scripts.
 - The `@shared/*` alias maps to `src/shared/*`. It is configured in `electron.vite.config.ts`, both tsconfigs and `vitest.config.ts`. The renderer (and Vitest) also has `@resources/*` → `resources/*`, for the logo.
 
 ## Architecture
@@ -129,6 +130,17 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
   - It contains only changes that were actually **applied** (`state_versions`), never a report's LLM summary, which may describe rejected proposals.
   - It covers only meetings that **started before** the one being analyzed, so re-analyzing an old meeting never sees later ones.
   - It includes the 5 most recent such meetings, with up to 20 change lines each.
+
+### Local speech-to-text (`src/main/localStt/`)
+
+Offline and free, with sherpa-onnx. The choice of model and the numbers behind it are in `spike/sherpa/FINDINGS.md`: Parakeet TDT 0.6B v2 for English, which runs at about 0.08× real time on a 4-core laptop. **No local model handles Hinglish yet.** So far (step 6a) this is the engine plus `api.getLocalSttStatus` / `api.testLocalStt`; settings, model downloads and recording use come next.
+- `models.ts`: the model registry. Models live in `<userData>/models/<dir>` with `silero_vad.onnx` at the root. `resolveModel` names any missing files.
+- `decode.ts`: decodes WebM, MP3, WAV and similar to 16 kHz mono with `OfflineAudioContext` in a hidden **sandboxed** window, with no ffmpeg. A Node-integrated page fails to decode (`EncodingError`), and `executeJavaScript` hangs when it returns a typed array, so samples come back as base64 chunks.
+- `core.ts`: `LocalTranscriber` runs Silero VAD (segments of at most 20 s), then the recognizer, and outputs timestamped lines. It takes the sherpa module as a parameter, so it runs in the worker and in plain-Node tests, and it keeps one recognizer per model loaded.
+- `worker.ts`: the Electron `utilityProcess` entry, built as its own bundle and started via `import workerPath from './worker?modulePath'`. Long CPU-bound jobs never block main; a full 29-minute meeting left main's event loop about 91% free.
+- `engine.ts`: `LocalSttEngine`, Electron-free with an injected spawn function. It runs one job at a time in a queue, starts the worker lazily, fails the current job if the worker crashes and starts a new one for the next, kills a stuck job after `jobTimeout` (1 min plus 1 s per audio second), and stops the worker after 5 idle minutes to free about 1.5 GB.
+- `util.ts`: `toRawSegments` labels mic lines with `selfName` and system lines "Others" (no diarization yet). `testWav` makes the self-test tone.
+- **Tests:** `test/localStt.test.ts` covers models, helpers, and the engine with a fake worker. `test/localStt.integration.test.ts` uses the real addon, model and meeting audio, and **skips unless** `spike/sherpa/models` and the audio exist, or `MB_STT_MODELS` / `MB_STT_AUDIO` are set, so CI skips it. `vitest.config.ts` stubs `?modulePath` imports with an `enforce: 'pre'` plugin, because otherwise Vite would import the worker itself.
 
 ### Sharing the report
 
@@ -224,5 +236,5 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
 ## Known limitations
 
 - Windows only: the detector and loopback capture are Windows-specific.
-- No local speech-to-text yet (whisper.cpp is planned).
+- Local speech-to-text is English-only and not wired into recordings yet (step 6b/6c). Hinglish needs a different engine (the spike suggests whisper.cpp large-v3-turbo) or a cloud provider.
 - Single-user, with no code signing.
