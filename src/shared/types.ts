@@ -165,7 +165,11 @@ export interface StateVersion {
 // ---------- Settings ----------
 
 export type LlmProvider = 'anthropic' | 'openai' | 'google' | 'openrouter' | 'ollama' | 'openai-compatible'
-export type SttProvider = 'none' | 'deepgram' | 'openai' | 'groq'
+export type SttProvider = 'none' | 'local' | 'deepgram' | 'openai' | 'groq'
+/** Speech-to-text services that need an API key (everything but local and none). */
+export type CloudSttProvider = 'deepgram' | 'openai' | 'groq'
+/** What meetings are spoken in. Local transcription is English-only, so Hindi/Hinglish goes to a cloud provider. */
+export type SttLanguage = 'auto' | 'en' | 'hinglish'
 export type Theme = 'system' | 'light' | 'dark'
 /** How long recordings are kept: until deleted, until transcribed, or 7/30 days. Transcripts and reports always stay. */
 export type AudioRetention = 'keep' | 'transcribed' | '7d' | '30d'
@@ -176,6 +180,9 @@ export interface Settings {
   llmBaseUrl: string // only for ollama / openai-compatible
   sttProvider: SttProvider
   sttModel: string
+  sttLanguage: SttLanguage
+  /** with the local provider: the cloud provider for meetings in Hindi or Hinglish ('none' = don't transcribe them) */
+  sttCloudFallback: CloudSttProvider | 'none'
   autoDetect: boolean
   hotkeyRecord: string
   hotkeyMark: string
@@ -221,6 +228,18 @@ export type UpdateStatus =
   | { state: 'downloaded'; version: string } // ready: installs on restart
   | { state: 'error'; message: string; checkedAt: string }
 
+/** The local speech-to-text model on this computer, and its download. */
+export interface LocalModelStatus {
+  label: string
+  /** download size of everything it needs */
+  bytes: number
+  installed: boolean
+  download:
+    | { state: 'idle' }
+    | { state: 'downloading' | 'verifying'; received: number; total: number }
+    | { state: 'error'; message: string }
+}
+
 export interface DetectedMeeting {
   app: string
   exe: string
@@ -246,6 +265,7 @@ export interface MainEvents {
   'navigate:meeting': [meetingId: string]
   'app:quit-requested': []
   'update:status': [status: UpdateStatus]
+  'localModel:status': [status: LocalModelStatus]
 }
 
 // a Record must name every event exactly once, so the preload's allow-list can't drift from MainEvents
@@ -258,7 +278,8 @@ const EVENT_NAMES: Record<keyof MainEvents, true> = {
   'transcript:appended': true,
   'navigate:meeting': true,
   'app:quit-requested': true,
-  'update:status': true
+  'update:status': true,
+  'localModel:status': true
 }
 /** The channels the preload lets the renderer subscribe to. */
 export const MAIN_EVENTS = Object.keys(EVENT_NAMES) as (keyof MainEvents)[]

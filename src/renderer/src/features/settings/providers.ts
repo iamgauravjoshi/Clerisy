@@ -1,4 +1,4 @@
-import type { LlmProvider, SttProvider } from '@shared/types'
+import type { CloudSttProvider, LlmProvider, Settings, SttLanguage, SttProvider } from '@shared/types'
 
 export interface ProviderInfo<T> {
   id: T
@@ -16,6 +16,11 @@ export const LLM_PROVIDERS: ProviderInfo<LlmProvider>[] = [
 ]
 
 export const STT_PROVIDERS: ProviderInfo<SttProvider>[] = [
+  {
+    id: 'local',
+    label: 'Local (free, English)',
+    description: 'Runs on this computer: no API key, and audio never leaves it. English only; needs a one-time 631 MB download.'
+  },
   {
     id: 'deepgram',
     label: 'Deepgram',
@@ -46,4 +51,22 @@ const httpUrl = (s: string): boolean => {
   } catch {
     return false
   }
+}
+
+export const STT_LANGUAGES: { value: SttLanguage; label: string }[] = [
+  { value: 'en', label: 'English' },
+  { value: 'hinglish', label: 'Hindi or Hinglish' },
+  { value: 'auto', label: 'Other, or several languages (detect)' }
+]
+
+export const CLOUD_STT_LABELS: Record<CloudSttProvider, string> = { deepgram: 'Deepgram', openai: 'OpenAI Whisper', groq: 'Groq Whisper' }
+
+/**
+ * Which provider's API key the Transcription key field saves: the selected cloud provider, or, with Local, the cloud
+ * provider that handles Hindi and Hinglish meetings. Null when no key is needed.
+ */
+export function sttKeyTarget(s: Pick<Settings, 'sttProvider' | 'sttLanguage' | 'sttCloudFallback'>): CloudSttProvider | null {
+  if (s.sttProvider === 'none') return null
+  if (s.sttProvider !== 'local') return s.sttProvider
+  return s.sttLanguage === 'hinglish' && s.sttCloudFallback !== 'none' ? s.sttCloudFallback : null
 }

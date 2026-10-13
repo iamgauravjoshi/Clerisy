@@ -48,6 +48,8 @@ export const SETTINGS: Settings = {
   llmBaseUrl: '',
   sttProvider: 'none',
   sttModel: '',
+  sttLanguage: 'en',
+  sttCloudFallback: 'none',
   autoDetect: false,
   hotkeyRecord: 'CommandOrControl+Shift+M',
   hotkeyMark: 'CommandOrControl+Shift+D',

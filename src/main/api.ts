@@ -14,7 +14,14 @@ import { audioUsage, deleteAfterTranscription, deleteMeetingAudio, expiredAudio,
 import { generateText } from 'ai'
 import type { ShareFormat, ShareOptions } from '@shared/reportExport'
 import { copyShare, exportShare, previewShare, revealLastExport } from './share'
-import { localSttStatus, testLocalStt } from './localStt'
+import {
+  cancelLocalModelDownload,
+  deleteLocalModel,
+  downloadLocalModel,
+  localModelStatus,
+  onLocalModelStatus,
+  testLocalStt
+} from './localStt'
 
 const audioRoot = (): string => join(app.getPath('userData'), 'audio')
 const audioDir = (meetingId: string): string => meetingAudioDir(audioRoot(), meetingId)
@@ -65,6 +72,9 @@ let updater = new Updater(null, {
 export function setUpdater(u: Updater): void {
   updater = u
 }
+
+// the local model's download progress and installs, for Settings › Transcription
+onLocalModelStatus((status) => broadcast('localModel:status', status))
 
 export let showMainWindow: () => void = () => {}
 export function setShowMainWindow(fn: () => void): void {
@@ -342,8 +352,11 @@ export const api = {
   analyzeMeeting: (meetingId: string) => analyzeMeeting(meetingId),
   getReport: (meetingId: string) => db.getReport(meetingId),
 
-  // local (offline) speech-to-text: whether the model is installed, and a self-test of the whole path
-  getLocalSttStatus: () => localSttStatus(),
+  // local (offline) speech-to-text: the model on disk, its download, and a self-test of the whole path
+  getLocalModelStatus: () => localModelStatus(),
+  downloadLocalModel: () => downloadLocalModel(),
+  cancelLocalModelDownload: () => cancelLocalModelDownload(),
+  deleteLocalModel: () => deleteLocalModel(),
   testLocalStt: () => testLocalStt(),
 
   // sharing the Impact Report

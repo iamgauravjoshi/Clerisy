@@ -18,7 +18,7 @@ Project context → meeting capture (no bot) → transcript → AI impact analys
 - **Global hotkeys**: `Ctrl+Shift+M` starts and stops recording; `Ctrl+Shift+D` marks an important moment, which the AI then weights more heavily.
 - **Live transcript** in roughly 30-second chunks, then a final full-file transcription for consistent speaker labels.
 - **Bring your own model**: Claude, OpenAI, Gemini, OpenRouter, Ollama (local) or any OpenAI-compatible server. Keys are encrypted with Windows DPAPI.
-- **Speech-to-text**: Deepgram (with speaker separation), OpenAI Whisper or Groq Whisper. You can also import `.vtt`, `.srt`, Zoom `.txt` or pasted transcripts, or audio and video files.
+- **Speech-to-text**: **Local (free, English)**, which runs on your computer after a one-time 631 MB download, with no key and no upload; or Deepgram (with speaker separation), OpenAI Whisper or Groq Whisper. Set the meeting language to route Hindi and Hinglish meetings to a cloud provider while English stays local. You can also import `.vtt`, `.srt`, Zoom `.txt` or pasted transcripts, or audio and video files.
 - **Meeting Impact Report**:
   - Covers new and changed requirements, decisions, action items, scope and timeline changes, risks and blockers, open questions, and conflicts with the existing state.
   - Each change shows its speaker, impact level, firm or tentative status, and quotes. Clicking a quote jumps to the transcript.
@@ -86,7 +86,7 @@ Drafts are invisible to the updater, so nothing reaches users until step 4. Keep
 ## Known limitations and next steps
 
 - Windows only for now. macOS needs ScreenCaptureKit audio capture and a different mic-usage detector.
-- There is no local (offline) speech-to-text yet. whisper.cpp is the planned option.
+- Local (offline) speech-to-text understands English only and doesn't separate speakers yet. Hindi and Hinglish meetings need a cloud provider.
 - Speaker separation numbers voices; use **Map speakers** on a meeting page to assign real names.
 - The app is single-user. Team sync, roles and multi-recorder merging are planned for v2.
 - There is no code signing yet, so Windows SmartScreen warns on first install.

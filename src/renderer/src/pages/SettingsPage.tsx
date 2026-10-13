@@ -5,7 +5,7 @@ import { Banner, Button, Skeleton, SkeletonCard } from '../components/ui'
 import { AboutSection } from '../features/settings/AboutSection'
 import { AppearanceSection } from '../features/settings/AppearanceSection'
 import { ModelSection } from '../features/settings/ModelSection'
-import { KEYLESS_LLM, NEEDS_BASE_URL, validate } from '../features/settings/providers'
+import { KEYLESS_LLM, NEEDS_BASE_URL, sttKeyTarget, validate } from '../features/settings/providers'
 import { RecordingSection } from '../features/settings/RecordingSection'
 import { type NavSection, SettingsNav } from '../features/settings/SettingsNav'
 import { TranscriptionSection } from '../features/settings/TranscriptionSection'
@@ -63,14 +63,16 @@ export function SettingsPage({ onSaved }: { onSaved: (s: Settings) => void }) {
   const errors = { ...all, llmBaseUrl: NEEDS_BASE_URL.includes(draft.llmProvider) ? all.llmBaseUrl : undefined }
   const invalid = Object.values(errors).some(Boolean)
   const llmKeyToSave = KEYLESS_LLM.includes(draft.llmProvider) ? '' : llmKey.trim()
-  const sttKeyToSave = draft.sttProvider === 'none' ? '' : sttKey.trim()
+  // the selected cloud provider's key, or with Local, the key of the provider that handles Hindi and Hinglish
+  const sttKeyFor = sttKeyTarget(draft)
+  const sttKeyToSave = sttKeyFor ? sttKey.trim() : ''
   const dirty = !sameForm(draft, saved) || !!llmKeyToSave || !!sttKeyToSave
 
   const saveAll = async (): Promise<void> => {
     if (invalid) throw new Error('Fix the highlighted fields first.')
     let next = await api.saveSettings(formFields(draft))
     if (llmKeyToSave) next = await api.setSecret(draft.llmProvider, llmKeyToSave)
-    if (sttKeyToSave && draft.sttProvider !== 'none') next = await api.setSecret(draft.sttProvider, sttKeyToSave)
+    if (sttKeyToSave && sttKeyFor) next = await api.setSecret(sttKeyFor, sttKeyToSave)
     setLlmKey('')
     setSttKey('')
     await window.mb.applyHotkeys()

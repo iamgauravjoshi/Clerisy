@@ -133,7 +133,14 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
 
 ### Local speech-to-text (`src/main/localStt/`)
 
-Offline and free, with sherpa-onnx. The choice of model and the numbers behind it are in `spike/sherpa/FINDINGS.md`: Parakeet TDT 0.6B v2 for English, which runs at about 0.08× real time on a 4-core laptop. **No local model handles Hinglish yet.** So far (step 6a) this is the engine plus `api.getLocalSttStatus` / `api.testLocalStt`; settings, model downloads and recording use come next.
+Offline and free, with sherpa-onnx. The choice of model and the numbers behind it are in `spike/sherpa/FINDINGS.md`: Parakeet TDT 0.6B v2 for English, which runs at about 0.08× real time on a 4-core laptop. **No local model handles Hinglish yet.** The `local` provider is a normal `sttProvider`, so every path (live chunks, the full-file pass, Transcribe recording, Import recording) uses it through `transcribe()`.
+- **Routing** (`src/shared/sttRouting.ts`, pure, used by `stt.ts` and the Settings UI): `routeStt` decides each meeting's service from `sttProvider`, `sttLanguage` (`en` (default) / `hinglish` / `auto`) and `sttCloudFallback`. With `local`, English and `auto` stay local; `hinglish` goes to the fallback cloud provider (using **its** default model), and with no fallback the result is `unavailable` with a clear error. Cloud providers get a language hint: Deepgram `language=en` / `multi` (code-switching) / `detect_language`, and Whisper `language=en` / `hi` / none. `sttKeyTarget` (renderer) picks whose API key the Transcription key field saves.
+- **Model downloads** (`download.ts`, Electron-free with injected `fetch`; main passes `net.fetch`, which uses the system proxy):
+  - Files are pinned in `models.ts` (`modelDownloads`): Parakeet from Hugging Face at a fixed revision, and Silero VAD from the sherpa-onnx GitHub release, each with its SHA-256 and size (661,834,367 bytes, shown as 631 MB).
+  - A file already in place with the right size is skipped. Others download to `<file>.part` and resume with `Range`; a 200 response restarts the part. The SHA-256 is checked before the rename, and a mismatch deletes the part.
+  - `checkFreeSpace` requires the remaining bytes plus 200 MB.
+  - Cancel keeps the parts. `deleteLocalModel` is refused while downloading or transcribing.
+  - Status (`LocalModelStatus`) reaches the UI through the `localModel:status` event (`useLocalModel`, `LocalModelCard` in Settings › Transcription). The API is `getLocalModelStatus`, `downloadLocalModel`, `cancelLocalModelDownload`, `deleteLocalModel` and `testLocalStt`.
 - `models.ts`: the model registry. Models live in `<userData>/models/<dir>` with `silero_vad.onnx` at the root. `resolveModel` names any missing files.
 - `decode.ts`: decodes WebM, MP3, WAV and similar to 16 kHz mono with `OfflineAudioContext` in a hidden **sandboxed** window, with no ffmpeg. A Node-integrated page fails to decode (`EncodingError`), and `executeJavaScript` hangs when it returns a typed array, so samples come back as base64 chunks.
 - `core.ts`: `LocalTranscriber` runs Silero VAD (segments of at most 20 s), then the recognizer, and outputs timestamped lines. It takes the sherpa module as a parameter, so it runs in the worker and in plain-Node tests, and it keeps one recognizer per model loaded.
@@ -236,5 +243,5 @@ Offline and free, with sherpa-onnx. The choice of model and the numbers behind i
 ## Known limitations
 
 - Windows only: the detector and loopback capture are Windows-specific.
-- Local speech-to-text is English-only and not wired into recordings yet (step 6b/6c). Hinglish needs a different engine (the spike suggests whisper.cpp large-v3-turbo) or a cloud provider.
+- Local speech-to-text is English-only and has no speaker separation yet (system audio is all "Others"). Hinglish needs a different engine (the spike suggests whisper.cpp large-v3-turbo) or a cloud provider.
 - Single-user, with no code signing.

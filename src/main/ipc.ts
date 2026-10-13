@@ -16,7 +16,7 @@ const shareFormat = z.enum(['markdown', 'slack', 'whatsapp'])
 const shareOptions = z.strictObject({ scope: z.enum(['approved', 'all']), evidence: z.boolean(), transcript: z.boolean() })
 const itemStatus = z.enum(['open', 'done', 'superseded', 'cancelled'])
 const llmProvider = z.enum(['anthropic', 'openai', 'google', 'openrouter', 'ollama', 'openai-compatible'])
-const sttProvider = z.enum(['none', 'deepgram', 'openai', 'groq'])
+const sttProvider = z.enum(['none', 'local', 'deepgram', 'openai', 'groq'])
 
 const httpUrl = (s: string): boolean => {
   try {
@@ -36,6 +36,8 @@ export const SETTINGS_FIELDS = {
     .refine((s) => s === '' || httpUrl(s), 'Base URL must be an http(s) address'),
   sttProvider,
   sttModel: z.string().max(200),
+  sttLanguage: z.enum(['auto', 'en', 'hinglish']),
+  sttCloudFallback: z.enum(['none', 'deepgram', 'openai', 'groq']),
   autoDetect: z.boolean(),
   hotkeyRecord: z.string().max(100),
   hotkeyMark: z.string().max(100),
@@ -128,7 +130,10 @@ export const API_ARGS = {
   copyShare: z.tuple([id, shareFormat, shareOptions]),
   exportShare: z.tuple([id, z.enum(['markdown', 'pdf']), shareOptions]),
   revealLastExport: z.tuple([]),
-  getLocalSttStatus: z.tuple([]),
+  getLocalModelStatus: z.tuple([]),
+  downloadLocalModel: z.tuple([]),
+  cancelLocalModelDownload: z.tuple([]),
+  deleteLocalModel: z.tuple([]),
   testLocalStt: z.tuple([])
 } satisfies { [K in keyof Api]: z.ZodType<Parameters<Api[K]>> }
 
