@@ -1,7 +1,19 @@
 import { app, BrowserWindow, dialog, Notification, shell } from 'electron'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import type { AppInfo, Item, LlmProvider, UpdateStatus, MainEvents, Proposal, Settings, Stakeholder, SttProvider } from '@shared/types'
+import type {
+  AppInfo,
+  Item,
+  LlmProvider,
+  MainEvents,
+  Proposal,
+  Settings,
+  Stakeholder,
+  StreamProgress,
+  SttProvider,
+  TranscriptionProgress,
+  UpdateStatus
+} from '@shared/types'
 import * as db from './db'
 import { analyzeMeeting, applyApproved } from './analysis'
 import { applyLoginItem, getSettings, loginItemStatus, saveSettings, setSecret } from './settings'
@@ -14,7 +26,14 @@ import { audioUsage, deleteAfterTranscription, deleteMeetingAudio, expiredAudio,
 import { generateText } from 'ai'
 import type { ShareFormat, ShareOptions } from '@shared/reportExport'
 import { copyShare, exportShare, previewShare, revealLastExport } from './share'
-import { localSttStatus, testLocalStt } from './localStt'
+import {
+  cancelLocalModelDownload,
+  deleteLocalModel,
+  downloadLocalModel,
+  localModelStatus,
+  onLocalModelStatus,
+  testLocalStt
+} from './localStt'
 
 const audioRoot = (): string => join(app.getPath('userData'), 'audio')
 const audioDir = (meetingId: string): string => meetingAudioDir(audioRoot(), meetingId)
@@ -66,6 +85,9 @@ export function setUpdater(u: Updater): void {
   updater = u
 }
 
+// the local model's download progress and installs, for Settings › Transcription
+onLocalModelStatus((status) => broadcast('localModel:status', status))
+
 export let showMainWindow: () => void = () => {}
 export function setShowMainWindow(fn: () => void): void {
   showMainWindow = fn
@@ -76,15 +98,39 @@ type Stream = (typeof STREAMS)[number]
 const streamFile = (meetingId: string, source: Stream): string => join(audioDir(meetingId), `${source}.webm`)
 const errText = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 
+// the final transcription's progress per meeting, for the meeting page (meeting:progress, getMeetingProgress)
+const progress = new Map<string, TranscriptionProgress>()
+function setProgress(meetingId: string, p: TranscriptionProgress | null): void {
+  if (p) progress.set(meetingId, p)
+  else progress.delete(meetingId)
+  broadcast('meeting:progress', meetingId, p)
+}
+
 /**
  * Final transcription of the full recordings. Each stream that transcribes replaces its live (chunked)
  * preview; a stream that fails, or returns nothing, keeps its preview. Returns the failures.
  */
 async function transcribeRecordings(s: Settings, meetingId: string): Promise<string[]> {
   const files = STREAMS.map((src) => (existsSync(streamFile(meetingId, src)) ? readFileSync(streamFile(meetingId, src)) : null))
+  let current: TranscriptionProgress = Object.fromEntries(STREAMS.filter((_, i) => files[i]).map((src) => [src, { stage: 'waiting' }]))
+  const report = (src: Stream, p: StreamProgress): void => {
+    current = { ...current, [src]: p }
+    setProgress(meetingId, current)
+  }
+  setProgress(meetingId, current)
   const results = await Promise.allSettled(
-    STREAMS.map((src, i) => (files[i] ? transcribe(s, files[i], 'audio/webm', src, 0, FILE_TIMEOUT_MS) : Promise.resolve([])))
-  )
+    STREAMS.map(async (src, i) => {
+      if (!files[i]) return []
+      try {
+        const segs = await transcribe(s, files[i], 'audio/webm', src, 0, FILE_TIMEOUT_MS, { onProgress: (p) => report(src, p) })
+        report(src, { stage: 'done' })
+        return segs
+      } catch (e) {
+        report(src, { stage: 'failed' })
+        throw e
+      }
+    })
+  ).finally(() => setProgress(meetingId, null))
   const preview = db.listSegments(meetingId)
   const errors: string[] = []
   const [mic, sys] = STREAMS.map((src, i) => {
@@ -284,7 +330,10 @@ export const api = {
   recordingChunk: async (meetingId: string, source: Stream, offsetSec: number, data: Uint8Array) => {
     const s = getSettings()
     if (s.sttProvider === 'none') return []
-    const transcribed = await transcribe(s, Buffer.from(data), 'audio/webm', source, offsetSec, CHUNK_TIMEOUT_MS)
+    // local transcription keeps only the newest waiting chunk per stream, so a slow computer skips previews instead of lagging
+    const transcribed = await transcribe(s, Buffer.from(data), 'audio/webm', source, offsetSec, CHUNK_TIMEOUT_MS, {
+      liveKey: `${meetingId}:${source}`
+    })
     // once recording stops, the full-file pass owns the transcript; a chunk that finishes later is dropped
     if (transcribed.length === 0 || db.getMeeting(meetingId)?.status !== 'recording') return []
     // the mic hears the speakers too: drop mic lines that echo system speech, whichever stream's chunk arrives first
@@ -332,6 +381,8 @@ export const api = {
     db.updateMeeting(meetingId, { status: 'transcribing', error: null })
     void finishMeeting(meetingId)
   },
+  /** The final transcription's progress, while it runs; null otherwise. */
+  getMeetingProgress: (meetingId: string): TranscriptionProgress | null => progress.get(meetingId) ?? null,
   addMark: (meetingId: string, t: number, kind: string) => db.addMark(meetingId, t, kind),
   stopRecording: (meetingId: string) => {
     db.updateMeeting(meetingId, { endedAt: new Date().toISOString(), status: 'transcribing' })
@@ -342,8 +393,11 @@ export const api = {
   analyzeMeeting: (meetingId: string) => analyzeMeeting(meetingId),
   getReport: (meetingId: string) => db.getReport(meetingId),
 
-  // local (offline) speech-to-text: whether the model is installed, and a self-test of the whole path
-  getLocalSttStatus: () => localSttStatus(),
+  // local (offline) speech-to-text: the model on disk, its download, and a self-test of the whole path
+  getLocalModelStatus: () => localModelStatus(),
+  downloadLocalModel: () => downloadLocalModel(),
+  cancelLocalModelDownload: () => cancelLocalModelDownload(),
+  deleteLocalModel: () => deleteLocalModel(),
   testLocalStt: () => testLocalStt(),
 
   // sharing the Impact Report

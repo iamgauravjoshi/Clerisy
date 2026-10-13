@@ -79,6 +79,8 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
 
    The full-file pass exists because diarization speaker numbers are not consistent across independent chunks. Speech-to-text requests time out after `CHUNK_TIMEOUT_MS` (60 s) for chunks and `FILE_TIMEOUT_MS` (10 min) for full files.
 
+   **Progress:** `transcribeRecordings` keeps each stream's `StreamProgress` (`waiting` / `decoding` / `transcribing` with done and total speech segments / `sending` to a cloud provider, which can't report progress / `done` / `failed`) in a main-side map. It broadcasts `meeting:progress` with every change and `null` at the end, and `api.getMeetingProgress` serves the current state to a page opened partway through. `features/meeting/TranscriptionProgress.tsx` shows one bar per stream while the meeting is `transcribing`.
+
    **Interruptions:**
    - Quitting while recording shows a "Stop recording and quit?" dialog (`before-quit` in `index.ts`). On yes, main sends `app:quit-requested`; the renderer stops and saves the recording, then calls `window.mb.quitReady()`. A 15 s fallback timer quits anyway if the renderer doesn't answer.
    - At startup, `db.recoverInterruptedMeetings` moves meetings stuck in `recording`/`transcribing` to `ready` with an error. The meeting page then offers **Transcribe recording** (`api.transcribeRecording`); it is never started automatically.
@@ -133,12 +135,20 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
 
 ### Local speech-to-text (`src/main/localStt/`)
 
-Offline and free, with sherpa-onnx. The choice of model and the numbers behind it are in `spike/sherpa/FINDINGS.md`: Parakeet TDT 0.6B v2 for English, which runs at about 0.08× real time on a 4-core laptop. **No local model handles Hinglish yet.** So far (step 6a) this is the engine plus `api.getLocalSttStatus` / `api.testLocalStt`; settings, model downloads and recording use come next.
+Offline and free, with sherpa-onnx. The choice of model and the numbers behind it are in `spike/sherpa/FINDINGS.md`: Parakeet TDT 0.6B v2 for English, which runs at about 0.08× real time on a 4-core laptop. **No local model handles Hinglish yet.** The `local` provider is a normal `sttProvider`, so every path (live chunks, the full-file pass, Transcribe recording, Import recording) uses it through `transcribe()`.
+- **Routing** (`src/shared/sttRouting.ts`, pure, used by `stt.ts` and the Settings UI): `routeStt` decides each meeting's service from `sttProvider`, `sttLanguage` (`en` (default) / `hinglish` / `auto`) and `sttCloudFallback`. With `local`, English and `auto` stay local; `hinglish` goes to the fallback cloud provider (using **its** default model), and with no fallback the result is `unavailable` with a clear error. Cloud providers get a language hint: Deepgram `language=en` / `multi` (code-switching) / `detect_language`, and Whisper `language=en` / `hi` / none. `sttKeyTarget` (renderer) picks whose API key the Transcription key field saves.
+- **Model downloads** (`download.ts`, Electron-free with injected `fetch`; main passes `net.fetch`, which uses the system proxy):
+  - Files are pinned in `models.ts` (`modelDownloads`): Parakeet from Hugging Face at a fixed revision, and Silero VAD from the sherpa-onnx GitHub release, each with its SHA-256 and size (661,834,367 bytes, shown as 631 MB).
+  - A file already in place with the right size is skipped. Others download to `<file>.part` and resume with `Range`; a 200 response restarts the part. The SHA-256 is checked before the rename, and a mismatch deletes the part.
+  - `checkFreeSpace` requires the remaining bytes plus 200 MB.
+  - Cancel keeps the parts. `deleteLocalModel` is refused while downloading or transcribing.
+  - Status (`LocalModelStatus`) reaches the UI through the `localModel:status` event (`useLocalModel`, `LocalModelCard` in Settings › Transcription). The API is `getLocalModelStatus`, `downloadLocalModel`, `cancelLocalModelDownload`, `deleteLocalModel` and `testLocalStt`.
 - `models.ts`: the model registry. Models live in `<userData>/models/<dir>` with `silero_vad.onnx` at the root. `resolveModel` names any missing files.
-- `decode.ts`: decodes WebM, MP3, WAV and similar to 16 kHz mono with `OfflineAudioContext` in a hidden **sandboxed** window, with no ffmpeg. A Node-integrated page fails to decode (`EncodingError`), and `executeJavaScript` hangs when it returns a typed array, so samples come back as base64 chunks.
+- `decode.ts`: decodes WebM, MP3, WAV and similar to 16 kHz mono with `OfflineAudioContext` in a hidden **sandboxed** window, with no ffmpeg. A Node-integrated page fails to decode (`EncodingError`), and `executeJavaScript` hangs when it returns a typed array, so samples come back as base64 chunks. One window is reused (live chunks arrive every `chunkSeconds`), decodes run one at a time, and the window closes after a minute idle, on a crash, and on quit (`closeDecoder`).
 - `core.ts`: `LocalTranscriber` runs Silero VAD (segments of at most 20 s), then the recognizer, and outputs timestamped lines. It takes the sherpa module as a parameter, so it runs in the worker and in plain-Node tests, and it keeps one recognizer per model loaded.
 - `worker.ts`: the Electron `utilityProcess` entry, built as its own bundle and started via `import workerPath from './worker?modulePath'`. Long CPU-bound jobs never block main; a full 29-minute meeting left main's event loop about 91% free.
 - `engine.ts`: `LocalSttEngine`, Electron-free with an injected spawn function. It runs one job at a time in a queue, starts the worker lazily, fails the current job if the worker crashes and starts a new one for the next, kills a stuck job after `jobTimeout` (1 min plus 1 s per audio second), and stops the worker after 5 idle minutes to free about 1.5 GB.
+  - **Priorities** (`JobOptions`): `recordingChunk` passes `liveKey` `<meetingId>:<source>`, which makes the job `live`. A new live job drops the waiting live job with the same key, and a `final` job (everything else) drops every waiting live job and runs next. A running job is never dropped. Dropped jobs reject with `DroppedJobError`, which `transcribeLocal` turns into no lines, so a slow computer skips preview chunks instead of building a backlog. `onStart` fires when a job reaches the worker.
 - `util.ts`: `toRawSegments` labels mic lines with `selfName` and system lines "Others" (no diarization yet). `testWav` makes the self-test tone.
 - **Tests:** `test/localStt.test.ts` covers models, helpers, and the engine with a fake worker. `test/localStt.integration.test.ts` uses the real addon, model and meeting audio, and **skips unless** `spike/sherpa/models` and the audio exist, or `MB_STT_MODELS` / `MB_STT_AUDIO` are set, so CI skips it. `vitest.config.ts` stubs `?modulePath` imports with an `enforce: 'pre'` plugin, because otherwise Vite would import the worker itself.
 
@@ -236,5 +246,5 @@ Offline and free, with sherpa-onnx. The choice of model and the numbers behind i
 ## Known limitations
 
 - Windows only: the detector and loopback capture are Windows-specific.
-- Local speech-to-text is English-only and not wired into recordings yet (step 6b/6c). Hinglish needs a different engine (the spike suggests whisper.cpp large-v3-turbo) or a cloud provider.
+- Local speech-to-text is English-only and has no speaker separation yet (system audio is all "Others"). Hinglish needs a different engine (the spike suggests whisper.cpp large-v3-turbo) or a cloud provider.
 - Single-user, with no code signing.

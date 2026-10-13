@@ -5,7 +5,7 @@ import type { Proposal } from '@shared/types'
 import { firmProposals } from '../../src/renderer/src/features/meeting/useMeetingData'
 import { position } from '../../src/renderer/src/features/meeting/PipelineStepper'
 import { MeetingPage } from '../../src/renderer/src/pages/MeetingPage'
-import { fakeMb, ITEM, MEETING, PROPOSAL, REPORT, SEGMENT } from './fakeMb'
+import { emitMain, fakeMb, ITEM, MEETING, PROPOSAL, REPORT, SEGMENT } from './fakeMb'
 import { renderWithProviders } from './render'
 
 // The rebuilt meeting page (DESIGN.md §6.6): header actions, pipeline, transcript and impact report, the review
@@ -141,6 +141,26 @@ describe('meeting page', () => {
     expect(await screen.findByText('MeetingBuddy closed while recording.')).toBeTruthy()
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Transcribe recording' })))
     expect(calls(invoke, 'transcribeRecording')).toEqual([['m1']])
+  })
+
+  it('shows the transcription progress of each stream after the meeting', async () => {
+    setup({
+      getMeeting: () => ({ ...MEETING, status: 'transcribing' }),
+      getReport: () => null,
+      getTranscript: () => ({ segments: [], marks: [] }),
+      getMeetingProgress: () => ({ mic: { stage: 'decoding' }, system: { stage: 'sending', provider: 'deepgram' } })
+    })
+    expect(await screen.findByText('Transcribing the recording')).toBeTruthy()
+    expect(await screen.findByText('Reading the recording…')).toBeTruthy()
+    expect(screen.getByText('Sending to Deepgram…')).toBeTruthy()
+    act(() => emitMain('meeting:progress', 'm1', { mic: { stage: 'transcribing', done: 3, total: 12 }, system: { stage: 'done' } }))
+    expect(screen.getByText('Transcribing: 25%')).toBeTruthy()
+    const mic = screen.getByRole('progressbar', { name: 'Your microphone' })
+    expect(mic.getAttribute('aria-valuenow')).toBe('3')
+    // another meeting's progress doesn't show here
+    act(() => emitMain('meeting:progress', 'm2', { mic: { stage: 'failed' } }))
+    expect(screen.queryByText(/Failed/)).toBeNull()
+    expect(screen.getByRole('progressbar', { name: 'Other participants' }).getAttribute('aria-valuenow')).toBe('1')
   })
 
   it('shows a live meeting as live, without analysis', async () => {

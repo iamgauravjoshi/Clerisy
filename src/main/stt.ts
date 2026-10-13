@@ -1,4 +1,5 @@
-import type { Segment, SegmentSource, Settings } from '@shared/types'
+import { deepgramLanguage, routeStt, whisperLanguage } from '@shared/sttRouting'
+import type { CloudSttProvider, Segment, SegmentSource, Settings, SttLanguage, SttProvider, StreamProgress } from '@shared/types'
 import { getSecret } from './settings'
 
 export type RawSegment = Omit<Segment, 'id' | 'meetingId' | 'idx'>
@@ -11,15 +12,15 @@ export const FILE_TIMEOUT_MS = 10 * 60_000
 
 const MB = 1024 * 1024
 /** Largest file each provider accepts in one request. Larger OpenAI/Groq uploads are refused before sending. */
-export const MAX_UPLOAD_BYTES: Record<Exclude<Settings['sttProvider'], 'none'>, number> = {
+export const MAX_UPLOAD_BYTES: Record<CloudSttProvider, number> = {
   openai: 25 * MB,
   groq: 25 * MB,
   deepgram: 2048 * MB
 }
 
-/** Throws a clear error if a file is too large for the chosen provider. */
-export function checkUploadSize(provider: Settings['sttProvider'], bytes: number): void {
-  if (provider === 'none' || bytes <= MAX_UPLOAD_BYTES[provider]) return
+/** Throws a clear error if a file is too large for the chosen provider. Local transcription has no upload. */
+export function checkUploadSize(provider: SttProvider, bytes: number): void {
+  if (provider === 'none' || provider === 'local' || bytes <= MAX_UPLOAD_BYTES[provider]) return
   const name = { openai: 'OpenAI', groq: 'Groq', deepgram: 'Deepgram' }[provider]
   const limit = MAX_UPLOAD_BYTES[provider] / MB
   throw new Error(
@@ -38,8 +39,14 @@ const EXTENSION: Record<string, string> = {
   'video/mp4': 'mp4'
 }
 
+export interface TranscribeOptions {
+  /** a live preview chunk of this stream (e.g. `<meetingId>:mic`); local transcription may skip it for a newer one */
+  liveKey?: string
+  onProgress?: (p: StreamProgress) => void
+}
+
 /**
- * Transcribes one audio file (webm/opus from MediaRecorder).
+ * Transcribes one audio file (webm/opus from MediaRecorder) with the service routeStt picks for the meeting language.
  * The mic stream is always the local user; the system stream contains everyone else.
  */
 export async function transcribe(
@@ -48,40 +55,53 @@ export async function transcribe(
   mime: string,
   source: SegmentSource,
   offsetSec: number,
-  timeoutMs: number
+  timeoutMs: number,
+  { liveKey, onProgress }: TranscribeOptions = {}
 ): Promise<RawSegment[]> {
-  if (s.sttProvider === 'none') return []
-  checkUploadSize(s.sttProvider, audio.byteLength)
+  const route = routeStt(s)
+  if (route.provider === 'none') return []
+  if (route.provider === 'unavailable') throw new Error(route.reason)
+  if (route.provider === 'local') {
+    // loaded on demand: it brings in Electron and the worker; the engine has its own timeout, scaled to the audio
+    const { transcribeLocal } = await import('./localStt')
+    const bytes = new Uint8Array(audio.buffer, audio.byteOffset, audio.byteLength)
+    return transcribeLocal(bytes, source, offsetSec, s.selfName, { liveKey, onProgress })
+  }
+  checkUploadSize(route.provider, audio.byteLength)
+  onProgress?.({ stage: 'sending', provider: route.provider })
   const signal = AbortSignal.timeout(timeoutMs)
   try {
-    return await request(s, audio, mime, source, offsetSec, signal)
+    return await request(s, route.provider, route.language, audio, mime, source, offsetSec, signal)
   } catch (e) {
-    if (signal.aborted) throw new Error(`Speech-to-text (${s.sttProvider}) timed out after ${timeoutMs / 1000} s.`)
+    if (signal.aborted) throw new Error(`Speech-to-text (${route.provider}) timed out after ${timeoutMs / 1000} s.`)
     throw e
   }
 }
 
 async function request(
   s: Settings,
+  provider: CloudSttProvider,
+  language: SttLanguage,
   audio: Buffer,
   mime: string,
   source: SegmentSource,
   offsetSec: number,
   signal: AbortSignal
 ): Promise<RawSegment[]> {
-  if (s.sttProvider === 'none') return []
-  const key = getSecret(s.sttProvider)
-  if (!key) throw new Error(`No API key saved for speech-to-text provider "${s.sttProvider}".`)
-  const model = s.sttModel || DEFAULT_STT_MODEL[s.sttProvider]
+  const key = getSecret(provider)
+  if (!key) throw new Error(`No API key saved for speech-to-text provider "${provider}".`)
+  // the model field belongs to the selected provider; a fallback for Hinglish uses its own default
+  const model = (provider === s.sttProvider && s.sttModel) || DEFAULT_STT_MODEL[provider]
   const self = s.selfName || 'Me'
 
-  if (s.sttProvider === 'deepgram') {
+  if (provider === 'deepgram') {
     const params = new URLSearchParams({
       model,
       smart_format: 'true',
       punctuate: 'true',
       utterances: 'true',
-      diarize: String(source === 'system')
+      diarize: String(source === 'system'),
+      ...deepgramLanguage(language)
     })
     const res = await fetch(`https://api.deepgram.com/v1/listen?${params}`, {
       method: 'POST',
@@ -103,20 +123,22 @@ async function request(
   }
 
   // OpenAI-compatible Whisper endpoint (OpenAI or Groq): segments, but no diarization
-  const base = s.sttProvider === 'groq' ? 'https://api.groq.com/openai/v1' : 'https://api.openai.com/v1'
+  const base = provider === 'groq' ? 'https://api.groq.com/openai/v1' : 'https://api.openai.com/v1'
   const form = new FormData()
   const ext = EXTENSION[mime.split(';')[0].trim()] ?? 'webm'
   form.append('file', new Blob([new Uint8Array(audio)], { type: mime }), `audio.${ext}`)
   form.append('model', model)
   form.append('response_format', 'verbose_json')
   form.append('timestamp_granularities[]', 'segment')
+  const lang = whisperLanguage(language)
+  if (lang) form.append('language', lang)
   const res = await fetch(`${base}/audio/transcriptions`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}` },
     body: form,
     signal
   })
-  if (!res.ok) throw new Error(`${s.sttProvider} transcription error ${res.status}: ${await res.text()}`)
+  if (!res.ok) throw new Error(`${provider} transcription error ${res.status}: ${await res.text()}`)
   const json = (await res.json()) as { text?: string; segments?: { start: number; end: number; text: string }[] }
   const segs = json.segments ?? (json.text ? [{ start: 0, end: 0, text: json.text }] : [])
   return segs

@@ -1,9 +1,11 @@
-import type { Settings, SttProvider } from '@shared/types'
-import { Badge, Field, Input, RadioCardGroup, SecretInput } from '../../components/ui'
-import { STT_PROVIDERS } from './providers'
+import { HINGLISH_NEEDS_CLOUD } from '@shared/sttRouting'
+import type { CloudSttProvider, Settings, SttLanguage, SttProvider } from '@shared/types'
+import { Badge, Banner, Field, Input, RadioCardGroup, SecretInput, Select } from '../../components/ui'
+import { LocalModelCard } from './LocalModelCard'
+import { CLOUD_STT_LABELS, STT_LANGUAGES, STT_PROVIDERS, sttKeyTarget } from './providers'
 import { SettingsSection } from './SettingsSection'
 
-/** Speech-to-text: who turns recordings into transcripts, and how often the live preview updates. */
+/** Speech-to-text: who turns recordings into transcripts, in which language, and how often the live preview updates. */
 export function TranscriptionSection({
   value,
   onChange,
@@ -18,7 +20,9 @@ export function TranscriptionSection({
   chunkError?: string
 }) {
   const p = value.sttProvider
-  const saved = p !== 'none' && !!value.hasKey[p]
+  const local = p === 'local'
+  const keyFor = sttKeyTarget(value)
+  const saved = !!keyFor && !!value.hasKey[keyFor]
   return (
     <SettingsSection
       id="settings-transcription"
@@ -34,18 +38,59 @@ export function TranscriptionSection({
           label: o.label,
           description: o.description,
           adornment:
-            o.id !== 'none' && value.hasKey[o.id] ? (
+            o.id === 'local' ? (
+              <Badge tone="success" appearance="soft">
+                Free
+              </Badge>
+            ) : o.id !== 'none' && value.hasKey[o.id] ? (
               <Badge tone="success" appearance="soft">
                 Key saved
               </Badge>
             ) : undefined
         }))}
       />
+
+      {local && <LocalModelCard />}
+
       {p !== 'none' && (
         <div className="grid regular:grid-cols-2 gap-4">
-          <Field label="Model" optional hint="Leave empty for the provider's default.">
-            <Input value={value.sttModel} onChange={(e) => onChange({ sttModel: e.target.value })} spellCheck={false} />
+          <Field
+            label="Meeting language"
+            hint={
+              local
+                ? 'The local model understands English only. Hindi and Hinglish meetings can go to a cloud provider instead.'
+                : 'Tells the provider what to expect, so it doesn’t guess a different language for short phrases.'
+            }
+          >
+            <Select value={value.sttLanguage} onChange={(e) => onChange({ sttLanguage: e.target.value as SttLanguage })}>
+              {STT_LANGUAGES.map((l) => (
+                <option key={l.value} value={l.value}>
+                  {l.label}
+                </option>
+              ))}
+            </Select>
           </Field>
+          {local && value.sttLanguage === 'hinglish' && (
+            <Field label="Transcribe Hindi and Hinglish meetings with">
+              <Select
+                value={value.sttCloudFallback}
+                onChange={(e) => onChange({ sttCloudFallback: e.target.value as CloudSttProvider | 'none' })}
+              >
+                <option value="none">Nothing (don't transcribe them)</option>
+                {(Object.keys(CLOUD_STT_LABELS) as CloudSttProvider[]).map((c) => (
+                  <option key={c} value={c}>
+                    {CLOUD_STT_LABELS[c]}
+                    {c === 'deepgram' ? ' (recommended for Hinglish)' : ''}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          {!local && (
+            <Field label="Model" optional hint="Leave empty for the provider's default.">
+              <Input value={value.sttModel} onChange={(e) => onChange({ sttModel: e.target.value })} spellCheck={false} />
+            </Field>
+          )}
           <Field
             label="Live transcript interval (seconds)"
             error={chunkError}
@@ -59,10 +104,20 @@ export function TranscriptionSection({
               onChange={(e) => onChange({ chunkSeconds: e.target.value === '' ? Number.NaN : Number(e.target.value) })}
             />
           </Field>
-          <Field label="API key" hint={saved ? 'A key is saved. Leave this empty to keep it.' : undefined} className="regular:col-span-2">
-            <SecretInput value={apiKey} onChange={(e) => onApiKey(e.target.value)} placeholder={saved ? '••••••••' : 'Paste your key'} />
-          </Field>
+          {keyFor && (
+            <Field
+              label={local ? `${CLOUD_STT_LABELS[keyFor]} API key` : 'API key'}
+              hint={saved ? 'A key is saved. Leave this empty to keep it.' : undefined}
+              className="regular:col-span-2"
+            >
+              <SecretInput value={apiKey} onChange={(e) => onApiKey(e.target.value)} placeholder={saved ? '••••••••' : 'Paste your key'} />
+            </Field>
+          )}
         </div>
+      )}
+
+      {local && value.sttLanguage === 'hinglish' && value.sttCloudFallback === 'none' && (
+        <Banner tone="warning">{HINGLISH_NEEDS_CLOUD}</Banner>
       )}
     </SettingsSection>
   )

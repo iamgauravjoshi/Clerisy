@@ -17,7 +17,12 @@ export function setupSteps(s: Settings): SetupStep[] {
       label: 'Add an AI model key',
       done: s.llmProvider === 'ollama' || s.llmProvider === 'openai-compatible' || !!s.hasKey[s.llmProvider]
     },
-    { key: 'stt', label: 'Choose speech-to-text', done: s.sttProvider !== 'none' && !!s.hasKey[s.sttProvider] },
+    // local needs no key (whether its model is downloaded shows in Settings › Transcription)
+    {
+      key: 'stt',
+      label: 'Choose speech-to-text',
+      done: s.sttProvider === 'local' || (s.sttProvider !== 'none' && !!s.hasKey[s.sttProvider])
+    },
     { key: 'name', label: 'Set your name', done: s.selfName.trim() !== '' && s.selfName !== 'Me' }
   ]
 }

@@ -75,3 +75,64 @@ describe('uploads', () => {
     expect(fetch).toHaveBeenCalledOnce()
   })
 })
+
+describe('meeting language and routing', () => {
+  const answering = () =>
+    vi.fn(
+      async (_url: string, _init: RequestInit) =>
+        new Response(JSON.stringify({ results: { utterances: [] }, segments: [] }), { status: 200 })
+    )
+  const routed = (patch: Partial<Settings>) =>
+    ({ ...settings('deepgram'), sttLanguage: 'en', sttCloudFallback: 'none', ...patch }) as Settings
+
+  it('asks Deepgram for the meeting language: English, or multilingual for Hinglish', async () => {
+    const fetch = answering()
+    vi.stubGlobal('fetch', fetch)
+    await transcribe(routed({ sttLanguage: 'en' }), Buffer.from('x'), 'audio/webm', 'system', 0, 1000)
+    await transcribe(routed({ sttLanguage: 'hinglish' }), Buffer.from('x'), 'audio/webm', 'system', 0, 1000)
+    const params = fetch.mock.calls.map(([url]) => new URL(url as string).searchParams)
+    expect(params[0].get('language')).toBe('en')
+    expect(params[1].get('language')).toBe('multi')
+    expect(params[1].get('diarize')).toBe('true')
+  })
+
+  it('tells Whisper the language, or leaves it out to let Whisper detect it', async () => {
+    const fetch = answering()
+    vi.stubGlobal('fetch', fetch)
+    await transcribe(routed({ sttProvider: 'groq', sttLanguage: 'hinglish' }), Buffer.from('x'), 'audio/webm', 'mic', 0, 1000)
+    await transcribe(routed({ sttProvider: 'groq', sttLanguage: 'auto' }), Buffer.from('x'), 'audio/webm', 'mic', 0, 1000)
+    const [hinglish, auto] = fetch.mock.calls.map(([, init]) => (init as RequestInit).body as FormData)
+    expect(hinglish.get('language')).toBe('hi')
+    expect(auto.get('language')).toBeNull()
+  })
+
+  it('sends Hinglish meetings to the chosen cloud provider with its default model, not the local model', async () => {
+    const fetch = answering()
+    vi.stubGlobal('fetch', fetch)
+    await transcribe(
+      routed({ sttProvider: 'local', sttLanguage: 'hinglish', sttCloudFallback: 'deepgram', sttModel: 'ignored' }),
+      Buffer.from('x'),
+      'audio/webm',
+      'system',
+      0,
+      1000
+    )
+    const url = new URL(fetch.mock.calls[0][0] as string)
+    expect(url.host).toBe('api.deepgram.com')
+    expect(url.searchParams.get('model')).toBe('nova-3')
+    expect(url.searchParams.get('language')).toBe('multi')
+  })
+
+  it('refuses Hinglish on the local provider without a cloud provider, saying what to do', async () => {
+    await expect(
+      transcribe(
+        routed({ sttProvider: 'local', sttLanguage: 'hinglish', sttCloudFallback: 'none' }),
+        Buffer.from('x'),
+        'audio/webm',
+        'mic',
+        0,
+        1000
+      )
+    ).rejects.toThrow('Local transcription understands English only')
+  })
+})

@@ -32,11 +32,32 @@ export const jobTimeout = (audioSeconds: number): number => 60_000 + audioSecond
 
 export type Progress = (done: number, total: number) => void
 
-interface Job {
+/**
+ * How a job is queued.
+ * - final: a whole recording after the meeting (or an import); it goes ahead of live previews and discards them.
+ * - live: a preview chunk while recording; only the newest one per `liveKey` waits, so a slow computer skips
+ *   preview chunks instead of building a backlog. The final pass transcribes everything again anyway.
+ */
+export interface JobOptions {
+  /** the job left the queue and went to the worker */
+  onStart?: () => void
+  onProgress?: Progress
+  priority?: 'final' | 'live'
+  liveKey?: string
+}
+
+/** A live preview chunk that was dropped because a newer one (or the final pass) took its place. */
+export class DroppedJobError extends Error {
+  constructor() {
+    super("A newer live preview chunk took this one's place.")
+    this.name = 'DroppedJobError'
+  }
+}
+
+interface Job extends JobOptions {
   id: number
   model: ResolvedModel
   samples: Float32Array
-  onProgress?: Progress
   resolve: (r: { lines: LocalLine[]; stats: JobStats }) => void
   reject: (e: Error) => void
 }
@@ -56,12 +77,29 @@ export class LocalSttEngine {
     this.timeoutMs = opts.timeoutMs ?? jobTimeout
   }
 
-  /** Transcribes 16 kHz mono samples; queued behind any job already running. */
-  transcribe(model: ResolvedModel, samples: Float32Array, onProgress?: Progress): Promise<{ lines: LocalLine[]; stats: JobStats }> {
+  /** Transcribes 16 kHz mono samples; queued behind the job already running (see JobOptions for the order). */
+  transcribe(model: ResolvedModel, samples: Float32Array, opts: JobOptions = {}): Promise<{ lines: LocalLine[]; stats: JobStats }> {
     return new Promise((resolve, reject) => {
-      this.queue.push({ id: this.nextId++, model, samples, onProgress, resolve, reject })
+      const job: Job = { ...opts, id: this.nextId++, model, samples, resolve, reject }
+      if (job.priority === 'live') {
+        // only the newest waiting chunk of this stream is worth transcribing
+        this.drop((q) => q.priority === 'live' && q.liveKey === job.liveKey)
+        this.queue.push(job)
+      } else {
+        // the meeting is over: previews no longer matter, and the real transcript shouldn't wait for them
+        this.drop((q) => q.priority === 'live')
+        this.queue.push(job)
+      }
       this.pump()
     })
+  }
+
+  /** Rejects and removes the waiting (not running) jobs that match. */
+  private drop(match: (job: Job) => boolean): void {
+    const dropped = this.queue.filter(match)
+    if (!dropped.length) return
+    this.queue = this.queue.filter((q) => !match(q))
+    for (const job of dropped) job.reject(new DroppedJobError())
   }
 
   get busy(): boolean {
@@ -90,6 +128,7 @@ export class LocalSttEngine {
       this.finish(job.id, e instanceof Error ? e : new Error(String(e)))
       return
     }
+    job.onStart?.()
     const audioSeconds = job.samples.length / 16000
     this.jobTimer = setTimeout(() => {
       // a stuck native call can't be interrupted: kill the worker; the next job starts a fresh one

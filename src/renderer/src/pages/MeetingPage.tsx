@@ -9,6 +9,7 @@ import { EditProposalDialog, RenameMeetingDialog, SpeakerMapDialog } from '../fe
 import { ImpactReport, orderedProposals } from '../features/meeting/ImpactReport'
 import { PipelineStepper } from '../features/meeting/PipelineStepper'
 import { ShareReportDialog } from '../features/meeting/ShareReportDialog'
+import { TranscriptionProgress } from '../features/meeting/TranscriptionProgress'
 import { type Jump, TranscriptPane } from '../features/meeting/TranscriptPane'
 import { firmProposals, useMeetingData } from '../features/meeting/useMeetingData'
 import { useHotkey } from '../hooks/useHotkey'
@@ -296,6 +297,7 @@ export function MeetingPage(props: {
       />
       <PipelineStepper meeting={meeting} proposals={report ? proposals : null} hasTranscript={segments.length > 0} />
 
+      {meeting.status === 'transcribing' && !props.live && <TranscriptionProgress meetingId={meeting.id} />}
       {busy && <Banner tone="info">{busy}</Banner>}
       {meeting.error && meeting.status !== 'transcribing' && !props.live && (
         <Banner
