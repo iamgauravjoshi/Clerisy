@@ -11,11 +11,11 @@ const SR = 16000
 const THREADS = Math.max(1, Math.min(4, os.cpus().length / 2)) // physical cores on this laptop
 const M = (...p) => path.join(__dirname, 'models', ...p)
 
-const whisper = (dir, size) => ({
+const whisper = (dir, size, language = '') => ({
   whisper: {
     encoder: M(dir, `${size}-encoder.int8.onnx`),
     decoder: M(dir, `${size}-decoder.int8.onnx`),
-    language: '', // detect the language of every segment
+    language, // '' detects the language of every segment
     task: 'transcribe',
     tailPaddings: -1
   },
@@ -27,6 +27,9 @@ const MODELS = {
   'whisper-base': () => whisper('sherpa-onnx-whisper-base', 'base'),
   'whisper-small': () => whisper('sherpa-onnx-whisper-small', 'small'),
   'whisper-turbo': () => whisper('sherpa-onnx-whisper-turbo', 'turbo'),
+  // Hinglish: the same model told the language, instead of detecting it per segment
+  'whisper-turbo-hi': () => whisper('sherpa-onnx-whisper-turbo', 'turbo', 'hi'),
+  'whisper-turbo-en': () => whisper('sherpa-onnx-whisper-turbo', 'turbo', 'en'),
   'moonshine-base-en': () => {
     const d = 'sherpa-onnx-moonshine-base-en-quantized-2026-02-27'
     const files = fs.readdirSync(M(d))

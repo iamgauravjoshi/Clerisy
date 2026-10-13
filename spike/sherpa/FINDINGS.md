@@ -118,3 +118,24 @@ node label.js results/<audio name> whisper-turbo 0.9
 - **True accuracy:** a few minutes of hand-corrected transcript would give real WER numbers, instead of agreement with turbo.
 - **GPU:** DirectML (Iris Xe) wasn't tried. The npm prebuilt is CPU-only.
 - **Other speaker-embedding models** (NeMo TitaNet small, 3D-Speaker ERes2Net) might split the host less.
+
+## 6. Hinglish test (added after the first run)
+
+- **Audio:** a 6.0-minute Hinglish talk ("how to give a job interview"), MP3 64 kbps / 44.1 kHz. It has 5.3 minutes of speech in 46 VAD segments, and the speaker switches between Hindi and English within sentences.
+
+| Model / setting | Time | Real-time factor | Peak RAM | Words | Detected languages | Result |
+|---|---|---|---|---|---|---|
+| Whisper turbo, auto-detect | 3.8 min | 0.62 | 2.5 GB | 622 | hi 22, en 19, es 2, ko 2, ja 1 | **Unusable.** English parts are fine; Hindi parts are broken Devanagari ("क ंा है"), plus Spanish and Korean hallucinations ("Les daba aquí", "여기 있는 거") |
+| Whisper turbo, language = Hindi | 4.6 min | 0.77 | 2.5 GB | 406 | hi 46 | **Unusable.** Everything comes out as broken Devanagari, including the English parts: vowel signs with no consonant ("ो र ो ेंे"), so characters are being dropped |
+| Whisper turbo, language = English | 3.5 min | 0.58 | 2.5 GB | 863 | en 46 | **Translates to English.** The gist survives ("What is the difference between the two people?"), but there are repetition loops ("I was like a lot of people" ×3) and invented lines ("Let's get a big hand for him") |
+| Parakeet (English) | 0.5 min | 0.08 | 1.1 GB | 242 | n/a | **Unusable.** Romanizes some Hindi ("Ikbanda hai interview me daraua hai") and drops most of the rest |
+| Whisper base, auto-detect | 1.2 min | 0.20 | 1.0 GB | 808 | hi 37, ur 3, th, my, es, ko… | **Unusable.** Writes Hindi in Urdu script, and loops ("ہمیں سے" ×11) |
+
+**Conclusion: local transcription with sherpa-onnx's Whisper int8 models cannot handle Hinglish today.**
+- The broken Devanagari, with consonants dropped and vowel signs stranded, points to **int8 quantization damage or a token-to-text problem** in this export, not just a hard accent. The English parts of the same segments come out cleanly.
+- Forcing English gives a **translation**, not a transcript. MeetingBuddy's evidence quotes would then be machine translations, and loops and invented lines would slip through quote validation, because the quotes would match the (wrong) transcript.
+
+**What to try for Hinglish:**
+1. **whisper.cpp** (`whisper-cpp-node`, prebuilt win-x64 with Vulkan) with **large-v3-turbo in a non-int8 format** (q5/q8 GGML or f16). That's a different decoder and quantization, and has a better track record on Hindi.
+2. A Hindi-specific or Indic model. For example, AI4Bharat's IndicConformer has ONNX exports for Hindi, so sherpa-onnx may be able to run it.
+3. Until one of those passes this same test, **keep Hinglish meetings on a cloud provider**: Deepgram nova-3 handles multilingual and code-switched speech, and Groq/OpenAI run full Whisper large-v3. The app's language setting can route "Hindi / Hinglish" there.
