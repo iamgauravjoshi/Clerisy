@@ -1,22 +1,13 @@
-import { CATEGORY_LABELS, type Item, type Proposal, type ProposalCategory } from '@shared/types'
+import { REPORT_ORDER } from '@shared/reportExport'
+import { CATEGORY_LABELS, type Item, type Proposal } from '@shared/types'
 import { ArrowUpRight, CheckCheck, FileSearch, Sparkles } from 'lucide-react'
 import { Banner, Button, EmptyState, Icon, Kbd, ProgressBar, SkeletonCard, Tooltip } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { ProposalCard } from './ProposalCard'
 import { firmProposals, type ReportData } from './useMeetingData'
 
-/** Biggest project impact first. */
-export const REPORT_ORDER: ProposalCategory[] = [
-  'conflict',
-  'scope_change',
-  'timeline_change',
-  'decision',
-  'requirement',
-  'action_item',
-  'blocker',
-  'risk',
-  'open_question'
-]
+// the order lives with the exports, so the screen and every shared report list changes the same way
+export { REPORT_ORDER }
 
 /** The proposals in the order the report shows them, which is also the J/K order. */
 export const orderedProposals = (proposals: Proposal[]): Proposal[] =>

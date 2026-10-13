@@ -130,6 +130,18 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
   - It covers only meetings that **started before** the one being analyzed, so re-analyzing an old meeting never sees later ones.
   - It includes the 5 most recent such meetings, with up to 20 change lines each.
 
+### Sharing the report
+
+- `src/shared/reportExport.ts` is the pure formatter. `renderShare` produces Markdown, Slack or WhatsApp text, `renderShareHtml` produces the PDF page, and `shareFileName` builds a safe default file name. It also owns `REPORT_ORDER`, which `ImpactReport` re-exports, so the screen and every export list changes the same way.
+  - **Scope:** `approved` shares accepted and applied proposals; `all` shares everything except rejected ones. Rejected proposals are never shared.
+  - **Slack and WhatsApp** use single-asterisk bold and `•` bullets, and never include the transcript. **Markdown** detail lines end with two spaces (a hard line break), so they don't merge into one paragraph when rendered.
+  - **PDF HTML** escapes every value and has a `default-src 'none'` CSP, so there are no scripts and no external loads.
+- `src/main/share.ts` does the I/O, and always builds the text from the database, never from the renderer:
+  - It copies with Electron's `clipboard`, because the sandboxed page has no clipboard permission.
+  - It saves through `dialog.showSaveDialog`. The PDF is printed from a hidden window with JavaScript off (`printToPDF`, A4) that is destroyed afterwards.
+  - `revealLastExport` only reveals the last file main itself saved.
+- The UI is `features/meeting/ShareReportDialog.tsx`, opened from **Share** on the meeting page. Its preview is the exact text that gets copied (`api.previewShare`).
+
 ### Updates and releases
 
 - `src/main/updater.ts` wraps electron-updater's `autoUpdater` (injected, so `test/updater.test.ts` drives it with a fake). It's Electron-free.
