@@ -167,6 +167,8 @@ export interface StateVersion {
 export type LlmProvider = 'anthropic' | 'openai' | 'google' | 'openrouter' | 'ollama' | 'openai-compatible'
 export type SttProvider = 'none' | 'deepgram' | 'openai' | 'groq'
 export type Theme = 'system' | 'light' | 'dark'
+/** How long recordings are kept: until deleted, until transcribed, or 7/30 days. Transcripts and reports always stay. */
+export type AudioRetention = 'keep' | 'transcribed' | '7d' | '30d'
 
 export interface Settings {
   llmProvider: LlmProvider
@@ -182,6 +184,7 @@ export interface Settings {
   theme: Theme // 'system' follows the Windows light/dark setting
   launchAtLogin: boolean // start in the tray when Windows starts (installed app only)
   autoUpdate: boolean // check for and download updates in the background (installed app only)
+  audioRetention: AudioRetention
   // which secrets are stored (values never leave the main process)
   hasKey: Partial<Record<LlmProvider | SttProvider, boolean>>
 }

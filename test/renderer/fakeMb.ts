@@ -56,6 +56,7 @@ export const SETTINGS: Settings = {
   theme: 'system',
   launchAtLogin: true,
   autoUpdate: true,
+  audioRetention: 'keep',
   hasKey: {}
 }
 

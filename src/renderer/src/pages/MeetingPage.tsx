@@ -1,5 +1,5 @@
 import type { Meeting, Proposal } from '@shared/types'
-import { Ellipsis, Pencil, RefreshCw, Share2, Sparkles, Trash2, Users } from 'lucide-react'
+import { AudioLines, Ellipsis, Pencil, RefreshCw, Share2, Sparkles, Trash2, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { api, errMsg } from '../api'
 import { MeetingStatusBadge } from '../components/domain'
@@ -147,6 +147,19 @@ export function MeetingPage(props: {
     })
   }
 
+  const removeRecording = async (): Promise<void> => {
+    if (
+      !(await confirm({
+        title: 'Delete this recording?',
+        body: "The audio is deleted from this computer. The transcript and report stay, but the meeting can't be transcribed again.",
+        confirmLabel: 'Delete recording',
+        tone: 'danger'
+      }))
+    )
+      return
+    void run('Deleting the recording…', () => api.deleteRecording(meeting.id))
+  }
+
   const transcript = (
     <TranscriptPane
       segments={segments}
@@ -259,6 +272,17 @@ export function MeetingPage(props: {
               align="end"
               items={[
                 { label: 'Rename…', icon: Pencil, onSelect: () => setRenaming(true) },
+                ...(hasAudio
+                  ? [
+                      {
+                        label: 'Delete recording…',
+                        icon: AudioLines,
+                        tone: 'danger' as const,
+                        disabled: props.live || meeting.status === 'transcribing' || !!busy,
+                        onSelect: () => void removeRecording()
+                      }
+                    ]
+                  : []),
                 { label: 'Delete meeting…', icon: Trash2, tone: 'danger', disabled: props.live || !!busy, onSelect: () => void remove() }
               ]}
               trigger={(p) => (

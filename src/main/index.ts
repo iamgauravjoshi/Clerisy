@@ -16,7 +16,7 @@ import { join } from 'node:path'
 import { autoUpdater } from 'electron-updater'
 import { pathToFileURL } from 'node:url'
 import { openDb, recoverInterruptedMeetings } from './db'
-import { api, broadcast, removeOrphanedAudio, setShowMainWindow, setUpdater } from './api'
+import { api, broadcast, removeOrphanedAudio, setShowMainWindow, setUpdater, sweepExpiredAudio } from './api'
 import { Updater } from './updater'
 import { MeetingDetector } from './detector'
 import { applyLoginItem, applyTheme, getSettings } from './settings'
@@ -239,6 +239,16 @@ app.whenReady().then(() => {
   } catch (e) {
     console.warn('Could not remove orphaned recordings', e)
   }
+  // recordings past the retention period in Settings › Recording; again every few hours while the app stays in the tray
+  const sweepAudio = (): void => {
+    try {
+      sweepExpiredAudio()
+    } catch (e) {
+      console.warn('Could not delete expired recordings', e)
+    }
+  }
+  sweepAudio()
+  setInterval(sweepAudio, 6 * 60 * 60_000)
   setShowMainWindow(showWindow)
 
   // every api call is checked: it must come from the app's page, and its arguments must match the function's schema

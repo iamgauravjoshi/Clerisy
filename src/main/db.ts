@@ -341,6 +341,14 @@ export function listMeetings(pid: string): Meeting[] {
 export function listMeetingIds(): string[] {
   return (db.prepare('SELECT id FROM meetings').all() as Row[]).map((r) => r.id as string)
 }
+/** Every meeting's id, start time and status, for deleting recordings past their retention period. */
+export function listMeetingAges(): { id: string; startedAt: string; status: string }[] {
+  return (db.prepare('SELECT id, started_at, status FROM meetings').all() as Row[]).map((r) => ({
+    id: r.id as string,
+    startedAt: r.started_at as string,
+    status: r.status as string
+  }))
+}
 export function getMeeting(mid: string): Meeting | null {
   const r = db.prepare('SELECT * FROM meetings WHERE id = ?').get(mid) as Row | undefined
   return r ? toMeeting(r) : null

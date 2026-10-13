@@ -1,4 +1,4 @@
-import { readFileSync, rmSync, truncateSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync, truncateSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SegmentSource } from '@shared/types'
@@ -53,6 +53,7 @@ beforeEach(() => {
   analyzeMeeting.mockReset()
   analyzeMeeting.mockResolvedValue(null)
   settings.sttProvider = 'deepgram'
+  settings.audioRetention = 'keep'
 })
 
 describe('recording to disk', () => {
@@ -159,6 +160,63 @@ describe('finishing a meeting', () => {
     api.stopRecording(id)
     await vi.waitFor(() => expect(db.getMeeting(id)?.error).toMatch(/No API key saved/))
     expect(db.getMeeting(id)?.status).toBe('ready')
+  })
+})
+
+describe('keeping recordings', () => {
+  const audioOf = (id: string): string => join(userData, 'audio', id)
+  const recordedBoth = (): string => {
+    const m = api.startRecording(projectId, 'T', '')
+    api.appendRecordingChunk(m.id, 'mic', bytes('m'))
+    api.appendRecordingChunk(m.id, 'system', bytes('s'))
+    return m.id
+  }
+
+  it('deletes the audio once both streams are transcribed, when set to delete once transcribed', async () => {
+    settings.audioRetention = 'transcribed'
+    const id = recordedBoth()
+    transcribe.mockResolvedValueOnce([said('alpha bravo charlie', 'mic')]).mockResolvedValueOnce([said('delta echo foxtrot', 'system')])
+    api.stopRecording(id)
+    await settled(id)
+    expect(existsSync(audioOf(id))).toBe(false)
+    expect(texts(id)).toHaveLength(2)
+  })
+
+  it('keeps the audio when a stream failed, so it can be transcribed again', async () => {
+    settings.audioRetention = 'transcribed'
+    const id = recordedBoth()
+    transcribe.mockResolvedValueOnce([said('alpha bravo charlie', 'mic')]).mockRejectedValueOnce(new Error('Deepgram error 500'))
+    api.stopRecording(id)
+    await settled(id)
+    expect(existsSync(audioOf(id))).toBe(true)
+    expect(api.hasRecording(id)).toBe(true)
+  })
+
+  it('keeps the audio by default', async () => {
+    const id = recordedBoth()
+    transcribe.mockResolvedValueOnce([said('alpha bravo charlie', 'mic')]).mockResolvedValueOnce([])
+    api.stopRecording(id)
+    await settled(id)
+    expect(existsSync(audioOf(id))).toBe(true)
+  })
+
+  it('deletes one recording on request, but not while it is being recorded', () => {
+    const id = recordedBoth()
+    expect(() => api.deleteRecording(id)).toThrow('still being recorded or transcribed')
+    db.updateMeeting(id, { status: 'ready' })
+    api.deleteRecording(id)
+    expect(api.hasRecording(id)).toBe(false)
+    expect(db.getMeeting(id)).not.toBeNull()
+  })
+
+  it('deletes all recordings except those in use, and reports the space they used', () => {
+    const done = recordedBoth()
+    db.updateMeeting(done, { status: 'ready' })
+    const live = recordedBoth()
+    expect(api.getAudioUsage().meetings).toBeGreaterThanOrEqual(2)
+    expect(api.deleteAllRecordings()).toBeGreaterThanOrEqual(1)
+    expect(existsSync(audioOf(done))).toBe(false)
+    expect(existsSync(audioOf(live))).toBe(true)
   })
 })
 
