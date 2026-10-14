@@ -16,7 +16,7 @@ const TYPES = {
   '.json': 'application/json'
 }
 
-createServer((req, res) => {
+const server = createServer((req, res) => {
   let path = decodeURIComponent((req.url ?? '/').split('?')[0])
   if (path.endsWith('/')) path += 'index.html'
   // never serve anything outside the website folder
@@ -27,4 +27,16 @@ createServer((req, res) => {
   if (!found) file = join(root, '404.html')
   res.writeHead(found ? 200 : 404, { 'Content-Type': TYPES[extname(file)] ?? 'application/octet-stream' })
   createReadStream(file).pipe(res)
-}).listen(port, () => console.log(`Clerisy website: http://localhost:${port}`))
+})
+
+// a port already in use (another preview still running): try the next one instead of crashing
+let tries = 0
+server.on('error', (e) => {
+  if (e.code === 'EADDRINUSE' && tries < 20) {
+    tries++
+    console.log(`Port ${port + tries - 1} is in use, trying ${port + tries}…`)
+    server.listen(port + tries)
+  } else throw e
+})
+server.on('listening', () => console.log(`Clerisy website: http://localhost:${server.address().port}  (Ctrl+C to stop)`))
+server.listen(port)
