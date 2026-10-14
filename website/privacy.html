@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy · Clerisy</title>
+    <meta name="description" content="Where Clerisy keeps your meetings, transcripts and keys, and what it sends to the services you choose." />
+    <meta name="theme-color" content="#f5f2ea" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#161512" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="/assets/logo.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="28" height="28" />Clerisy</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="/#how">How it works</a>
+          <a href="/#ask">Ask</a>
+          <a href="/privacy" aria-current="page">Privacy</a>
+          <a href="/download">Download</a>
+        </nav>
+        <a class="button small" href="/download">Get Clerisy</a>
+      </div>
+    </header>
+
+    <main id="main">
+      <div class="page-head">
+        <div class="wrap">
+          <p class="kicker">Privacy</p>
+          <h1>Your meetings stay on <em>your computer.</em></h1>
+          <p class="lede">
+            Clerisy is a desktop app. It has no account, no server of its own, and no analytics. This page says plainly what it stores, where,
+            and what it sends to the services you choose.
+          </p>
+        </div>
+      </div>
+
+      <div class="doc">
+        <div class="wrap prose">
+          <h2>What Clerisy stores, and where</h2>
+          <p>Everything lives in one folder on your computer, <code>%APPDATA%\Clerisy</code>:</p>
+          <ul>
+            <li><strong>Your projects</strong>: items, their history, meetings, transcripts, proposed changes and your answers to them, in a local database.</li>
+            <li><strong>Recordings</strong>: the audio of your microphone and of the other participants, for as long as you choose to keep it.</li>
+            <li><strong>Settings and API keys.</strong> Keys are encrypted with Windows' own data protection, tied to your Windows account.</li>
+            <li><strong>The local speech-to-text model</strong>, if you download it.</li>
+          </ul>
+          <p>Uninstalling Clerisy leaves this folder in place, so a reinstall picks up where you were. Delete the folder to remove everything.</p>
+
+          <h2>What leaves your computer</h2>
+          <p>Only what the services you configure need, and only when you use them:</p>
+          <ul>
+            <li>
+              <strong>Speech-to-text.</strong> With the Local option, audio is transcribed on your computer and never uploaded. With Deepgram,
+              OpenAI or Groq, the recording is sent to that provider to be transcribed.
+            </li>
+            <li>
+              <strong>Analysis and Ask.</strong> The transcript, your project's items and recent changes are sent to the AI model you chose.
+              With a local Ollama model, that stays on your computer too.
+            </li>
+            <li><strong>Updates.</strong> Clerisy checks GitHub for new versions. You can turn this off in Settings.</li>
+            <li><strong>Model download.</strong> The local speech-to-text model downloads from Hugging Face and GitHub, and each file is checked against a fixed fingerprint.</li>
+          </ul>
+          <p>Those providers' own terms and privacy policies apply to what you send them. Clerisy itself receives nothing.</p>
+
+          <h2>Recordings and consent</h2>
+          <p>
+            Clerisy records your microphone and your computer's audio, which includes the other people in the call. Recording laws differ by
+            country and state. Tell participants that the meeting is being recorded, and ask them where the law requires it.
+          </p>
+
+          <h2>How long things are kept</h2>
+          <p>
+            You choose in Settings: keep recordings, delete them once they're transcribed, or delete them after 7 or 30 days. You can also
+            delete one meeting's recording, or all of them, at any time. Transcripts and the project's history are kept until you delete the
+            meeting or the project.
+          </p>
+        </div>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <span>Clerisy</span>
+        <nav aria-label="Footer">
+          <a href="/download">Download</a>
+          <a href="/privacy">Privacy</a>
+          <a href="https://github.com/iamgauravjoshi/MeetingBuddy">Source on GitHub</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

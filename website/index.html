@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clerisy: what changed because of this meeting?</title>
+    <meta
+      name="description"
+      content="Clerisy is a Windows app that keeps your project's requirements, decisions, tasks and risks up to date from your meetings. Every proposed change quotes what was actually said, and nothing changes until you approve it."
+    />
+    <meta name="theme-color" content="#f5f2ea" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#161512" media="(prefers-color-scheme: dark)" />
+    <meta property="og:title" content="Clerisy: what changed because of this meeting?" />
+    <meta
+      property="og:description"
+      content="A desktop app that turns meetings into changes to your project's state, each one backed by a quote from the transcript."
+    />
+    <meta property="og:image" content="/assets/meeting.webp" />
+    <link rel="icon" href="/assets/logo.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/assets/icon-256.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400;1,6..72,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site-header">
+      <div class="wrap">
+        <a class="brand" href="/"><img src="/assets/logo.svg" alt="" width="28" height="28" />Clerisy</a>
+        <nav class="site-nav" aria-label="Site">
+          <a href="#how">How it works</a>
+          <a href="#ask">Ask</a>
+          <a href="/privacy">Privacy</a>
+          <a href="/download">Download</a>
+        </nav>
+        <a class="button small" href="/download">Get Clerisy</a>
+      </div>
+    </header>
+
+    <main id="main">
+      <div class="hero">
+        <div class="wrap">
+          <p class="kicker">For people who run projects · Windows</p>
+          <h1>What changed because of this <em>meeting?</em></h1>
+          <p class="lede">
+            Clerisy keeps your project's requirements, decisions, tasks and risks in one place, listens to your meetings, and proposes exactly
+            what each one changed. Every change quotes the words that caused it, and nothing changes until you say so.
+          </p>
+          <div class="actions">
+            <a class="button" href="/download">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 3v10m0 0-4-4m4 4 4-4M4 16h12" stroke-linecap="round" stroke-linejoin="round" /></svg>
+              Download for Windows
+            </a>
+            <a class="button quiet" href="#how">See how it works</a>
+            <span class="note">Free. No account. Bring your own AI model.</span>
+          </div>
+
+          <figure class="shot hero-shot">
+            <div class="bar"><img src="/assets/logo.svg" alt="" width="15" height="15" />Clerisy · Weekly sync · Oct 13</div>
+            <img
+              src="/assets/meeting.webp"
+              width="2400"
+              height="1500"
+              alt="A meeting in Clerisy: the transcript on the left, and on the right the Impact report, which summarises how the project changed and lists each proposed change, here a conflict with an earlier decision, with the quotes that back it."
+            />
+          </figure>
+          <p class="caption">
+            A real screen, with an invented project. On the left, what was said. On the right, what it changed: a summary of the project's shift, then
+            each proposed change with its evidence, waiting for review.
+          </p>
+        </div>
+      </div>
+
+      <section aria-labelledby="not-a-summary">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="num">Why</span>
+            <div>
+              <h2 id="not-a-summary">Not a summary. <em>A record of change.</em></h2>
+              <p class="lede">
+                Meeting notes tell you what people talked about. Then someone still has to work out which decisions moved, which deadlines
+                slipped and which tasks appeared, and copy it all somewhere it lasts. Clerisy does that part, and keeps the receipts.
+              </p>
+            </div>
+          </div>
+
+          <div class="contrast">
+            <div>
+              <p class="label">A meeting summary</p>
+              <p class="summary">
+                The team discussed payments, the backend and the launch date. Tomás shared clinic feedback. Daniel raised concerns about
+                reporting. Several next steps were agreed.
+              </p>
+            </div>
+            <div>
+              <p class="label">What Clerisy proposes</p>
+              <ul class="change">
+                <li>
+                  <span class="op">Supersede</span>
+                  <span class="what"><span class="was">Use Firebase for the backend</span> → Use Postgres on Supabase</span>
+                  <q>Let’s move to Postgres on Supabase instead</q>
+                  <cite>Daniel Okafor · 04:53</cite>
+                </li>
+                <li>
+                  <span class="op">Deadline</span>
+                  <span class="what">Pilot launch: <span class="was">Nov 3</span> → Nov 20</span>
+                  <q>the launch moves to November 20</q>
+                  <cite>Priya Nair · 06:56</cite>
+                </li>
+                <li>
+                  <span class="op">Conflict</span>
+                  <span class="what">Double-booking contradicts the kickoff decision</span>
+                  <q>They need to double-book a slot when a patient is in pain</q>
+                  <cite>Tomás Reyes · 02:09</cite>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="how" aria-labelledby="how-title">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="num">How it works</span>
+            <h2 id="how-title">Three steps, and you <em>decide the last one.</em></h2>
+          </div>
+
+          <ol class="steps">
+            <li>
+              <span class="num">01</span>
+              <div class="body">
+                <div class="prose">
+                  <h3>Capture, without a bot in the call</h3>
+                  <p>
+                    Clerisy records your microphone and your computer's audio on your own machine, so it works with Zoom, Teams, Google Meet,
+                    Slack, Discord or anything else that plays sound. Nobody else has to install anything, and no bot joins the call.
+                  </p>
+                  <p>
+                    When a meeting app starts using your microphone, Clerisy offers to record. While it does, a small window stays on top of the
+                    call with the timer, the latest line, and buttons to mark a moment or stop.
+                  </p>
+                </div>
+                <div>
+                  <figure class="widget-shot">
+                    <img src="/assets/widget.webp" width="1140" height="228" alt="The floating controls while recording: a red dot, 01:11 elapsed, the meeting title, and buttons to mark a moment, stop and open Clerisy." />
+                  </figure>
+                  <p class="caption">The floating controls stay above your meeting app and never take focus from it.</p>
+                </div>
+              </div>
+            </li>
+
+            <li>
+              <span class="num">02</span>
+              <div class="body">
+                <div class="prose">
+                  <h3>Proposals that quote their source</h3>
+                  <p>
+                    After the meeting, the AI model you chose compares the transcript with your project's current state and proposes changes:
+                    new requirements, decisions made or reversed, tasks with owners, moved deadlines, risks, open questions, and conflicts with
+                    what was agreed before.
+                  </p>
+                  <p>
+                    Each proposal has to quote the transcript, and Clerisy checks every quote word by word. A quote that isn't in the transcript,
+                    or one that drops a "not", gets the proposal thrown out before you ever see it.
+                  </p>
+                </div>
+                <figure class="check" aria-label="An example of the quote check">
+                  <div class="row">
+                    <span class="tag">Said</span>
+                    <span class="kept">“We will <b>not</b> ship the mobile app on Friday.”</span>
+                  </div>
+                  <div class="row">
+                    <span class="tag">Quoted</span>
+                    <span class="dropped">“We will ship the mobile app on Friday.”</span>
+                  </div>
+                  <p class="verdict"><b>Dropped.</b> The quote leaves out a negation, so it doesn't count as evidence.</p>
+                </figure>
+              </div>
+            </li>
+
+            <li>
+              <span class="num">03</span>
+              <div class="body">
+                <div class="prose">
+                  <h3>You approve, and the project moves forward</h3>
+                  <p>
+                    Accept, edit or reject each change. Applying them writes a new version of the project state, and every item keeps its
+                    history: which meeting changed it, who said so, and the exact words.
+                  </p>
+                  <p>Months later, "why is the launch on the 20th?" has an answer you can click through to.</p>
+                </div>
+                <figure class="shot">
+                  <div class="bar"><img src="/assets/logo.svg" alt="" width="15" height="15" />Clerisy · Harbor booking app</div>
+                  <img src="/assets/board.webp" width="2400" height="1500" loading="lazy" alt="The project state in Clerisy: requirements, decisions, tasks, risks, deadlines and open questions, each as a column of items." />
+                </figure>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+      <section id="ask" aria-labelledby="ask-title">
+        <div class="wrap">
+          <div class="split">
+            <div>
+              <p class="kicker">Ask the project</p>
+              <h2 id="ask-title">Questions answered <em>from the record.</em></h2>
+              <div class="prose" style="margin-top: 1.5rem">
+                <p>
+                  Ask "what's still open, and who owns it?" or "why did the launch move?", and Clerisy answers from your project's items and
+                  meetings only, never from the model's general knowledge.
+                </p>
+                <p>
+                  Every point in the answer shows the items and quotes behind it. Points that nothing backs up are left out, and when the project
+                  simply doesn't say, the answer tells you so.
+                </p>
+              </div>
+            </div>
+            <figure class="shot">
+              <div class="bar"><img src="/assets/logo.svg" alt="" width="15" height="15" />Clerisy · Ask</div>
+              <img src="/assets/ask.webp" width="2400" height="1500" loading="lazy" alt="Ask in Clerisy: the question 'Why did the pilot launch move to November 20?' answered in two points, each with the deadline it concerns and a quote from the weekly sync." />
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section aria-labelledby="yours-title">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="num">Privacy</span>
+            <div>
+              <h2 id="yours-title">Yours, <em>on your machine.</em></h2>
+              <p class="lede">Clerisy is a desktop app, not a service. There's no Clerisy account and no Clerisy server.</p>
+            </div>
+          </div>
+          <dl class="facts">
+            <div>
+              <dt>Free transcription that never leaves your computer</dt>
+              <dd>
+                Local speech-to-text runs offline after a one-time 665 MB download, with speaker labels. English for now; Hindi and Hinglish
+                meetings can go to a cloud provider you choose.
+              </dd>
+            </div>
+            <div>
+              <dt>Your own AI model</dt>
+              <dd>Claude, OpenAI, Gemini, OpenRouter, a local Ollama model, or any OpenAI-compatible server. You pay your provider directly.</dd>
+            </div>
+            <div>
+              <dt>Keys stay encrypted</dt>
+              <dd>API keys are encrypted with Windows' own data protection and never shown again, not even to the app's interface.</dd>
+            </div>
+            <div>
+              <dt>You decide how long audio lives</dt>
+              <dd>Keep recordings, delete them once transcribed, or after 7 or 30 days. Transcripts and decisions stay either way.</dd>
+            </div>
+          </dl>
+          <p style="margin-top: 2rem"><a href="/privacy">How Clerisy handles your data →</a></p>
+        </div>
+      </section>
+
+      <section aria-labelledby="also-title">
+        <div class="wrap">
+          <div class="section-head">
+            <span class="num">Also</span>
+            <h2 id="also-title">The details that make it <em>usable every week.</em></h2>
+          </div>
+          <dl class="facts">
+            <div>
+              <dt>Speaker labels you can fix</dt>
+              <dd>Tell Clerisy how many people were in the meeting, merge voices it split, and give them names.</dd>
+            </div>
+            <div>
+              <dt>Share the outcome</dt>
+              <dd>Copy the approved changes as a Slack or WhatsApp message or as Markdown, or save a PDF.</dd>
+            </div>
+            <div>
+              <dt>Global hotkeys</dt>
+              <dd><kbd>Ctrl+Shift+M</kbd> starts and stops recording; <kbd>Ctrl+Shift+D</kbd> marks a moment the AI should weigh more.</dd>
+            </div>
+            <div>
+              <dt>Import what you already have</dt>
+              <dd>Transcripts from Zoom, Teams (VTT/SRT) or plain text, and audio or video files.</dd>
+            </div>
+            <div>
+              <dt>Change history</dt>
+              <dd>Every applied meeting is a version of the project, with a before-and-after for each item.</dd>
+            </div>
+            <div>
+              <dt>Updates itself</dt>
+              <dd>New versions download in the background and install when you restart, never in the middle of a recording.</dd>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <section class="closing" aria-labelledby="closing-title">
+        <div class="wrap">
+          <h2 id="closing-title">Next meeting, <em>keep the record.</em></h2>
+          <div class="actions">
+            <a class="button" href="/download">Download for Windows</a>
+            <span class="note">Windows 10 or 11 · free</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <span>Clerisy</span>
+        <nav aria-label="Footer">
+          <a href="/download">Download</a>
+          <a href="/privacy">Privacy</a>
+          <a href="https://github.com/iamgauravjoshi/MeetingBuddy">Source on GitHub</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>
