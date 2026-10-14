@@ -92,6 +92,7 @@ describe('speaker labels', () => {
   it('runs diarization only when asked and the models are there, after transcribing, with the spike’s threshold', () => {
     const configs: unknown[] = []
     const process = vi.fn(() => [{ start: 0, end: 2, speaker: 5 }])
+    const setConfig = vi.fn()
     const sherpa = {
       OfflineRecognizer: class {
         createStream = () => ({ acceptWaveform: () => {} })
@@ -104,6 +105,7 @@ describe('speaker labels', () => {
           configs.push(config)
         }
         process = process
+        setConfig = setConfig
       }
     } as unknown as Sherpa
     const t = new LocalTranscriber(sherpa, 2)
@@ -124,6 +126,20 @@ describe('speaker labels', () => {
     expect(process).toHaveBeenCalledWith(audio)
     expect(configs[0]).toMatchObject({ clustering: { numClusters: -1, threshold: DIARIZATION_CONFIG.threshold } })
     expect(DIARIZATION_CONFIG.threshold).toBe(0.9)
+    // unknown count: cluster by distance
+    expect(setConfig).toHaveBeenLastCalledWith({ clustering: { numClusters: -1, threshold: 0.9 } })
+
+    // the user said 3 people: exactly 3 voices
+    t.transcribe(model, audio, undefined, { speakers: true, numSpeakers: 3 })
+    expect(setConfig).toHaveBeenLastCalledWith({ clustering: { numClusters: 3, threshold: 0.9 } })
+
+    // Detect speakers again: labels the given lines, without transcribing
+    const segs = vi.mocked(t.speechSegments)
+    segs.mockClear()
+    const relabelled = t.transcribe(model, audio, undefined, { relabel: [{ start: 0, end: 1.5, text: 'Earlier line.' }], numSpeakers: 2 })
+    expect(relabelled.lines).toEqual([{ start: 0, end: 1.5, text: 'Earlier line.', speaker: 1 }])
+    expect(segs).not.toHaveBeenCalled()
+    expect(setConfig).toHaveBeenLastCalledWith({ clustering: { numClusters: 2, threshold: 0.9 } })
   })
 })
 

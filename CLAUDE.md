@@ -95,6 +95,13 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
    - **Recording state is owned by the renderer**, in `useRecordingController` (`features/recording/`). It reports back via `window.mb.setRecordingState` so that main's tray menu and hotkeys stay in sync. `test/renderer/recording.test.tsx` pins the whole flow (start, stop, mark, hotkeys, detection, auto-stop, quit).
    - Global hotkeys only broadcast `hotkey:record` and `hotkey:mark`.
 
+### Floating meeting widget (`src/main/widget.ts`, `pages/WidgetPage.tsx`)
+
+A small always-on-top, frameless window (`FloatingWidget`, 380×76, not in the taskbar), shown with `showInactive()` so it never takes focus from the meeting app. It is the app's own page loaded with `#widget` (`main.tsx` picks `WidgetPage`), so the preload, sandbox and `isTrustedAppUrl` IPC checks are the same as the main window's.
+- **What it shows** is decided in `index.ts` (`updateWidget`), sent as the `widget:state` event (`WidgetState`), and served to a freshly loaded page by `api.getWidgetState`: `recording` (timer, meeting title, latest transcript line from `transcript:appended`, Mark/Stop/Open) while `recording:state` says a recording runs; `detected` ("Teams is using the microphone", Record/Dismiss) when the detector fires and nothing records, until recorded, dismissed or the detector's `end`; hidden otherwise, or when the `floatingWidget` setting (default on, Settings › Recording) is off.
+- **Its buttons** call `api.widgetAction` (`WIDGET_ACTIONS`), handled by `widgetAction` in `index.ts`. Recording stays with the main window's renderer: stop and mark are the `hotkey:record` / `hotkey:mark` events `useRecordingController` already handles; record shows the main window and its start dialog; open shows it on the meeting page (`navigate:meeting`).
+- **Position:** dragged by its background (`-webkit-app-region`), remembered in `<userData>/widget.json`; `widgetPosition` (pure) puts it back there only if it fits on a current screen, else in the primary screen's top-right corner.
+
 ### Analysis (`src/main/analysis.ts`): the core
 
 - **Short refs in the prompt:** `buildRefs` gives the model short IDs instead of UUIDs:
@@ -166,6 +173,8 @@ Offline and free, with sherpa-onnx. The choice of model and the numbers behind i
   - `stt.transcribe` asks for them only on the **system** stream's whole recording (the final pass or an import), never a live chunk or the mic, and only with the `localSpeakerLabels` setting (default on). The worker transcribes first, sends a `speakers` message (progress stage `speakers`, "Telling speakers apart…", with no percentage because sherpa reports none), then runs `OfflineSpeakerDiarization` over the whole audio with `DIARIZATION_CONFIG` (threshold **0.9**; the default 0.5 found 47 voices in an 8-person meeting).
   - `labelSpeakers` (pure) gives each line the voice that talks most during it (or the nearest turn) and renumbers voices 1, 2, 3… in order of first appearance; `toRawSegments` names them "Speaker n" like Deepgram, and unlabelled system lines stay "Others". The engine allows twice the time for a job with speaker labels.
   - On the 29-minute meeting: about 3.9 minutes for the labels on top of about 2.4 for transcription, and 11 voices. Over-splitting is expected, which is what **Merge speakers** is for.
+  - **Expected speaker count:** `meetings.expected_speakers` (migration 6; `null` = unknown), set in the Record dialog ("Other people in the meeting", not counting the user). `transcribeRecordings` passes it for the **system** stream only; `speakerTurns` then calls the cached diarizer's `setConfig` with `numClusters` = the count (or `-1` and the 0.9 threshold when unknown) before every job. Cloud providers ignore it.
+  - **Detect speakers again** (`api.detectSpeakers(meetingId, count | null)`, the meeting page's ⋯ menu, `DetectSpeakersDialog`): decodes the saved `system.webm` and runs a `relabel` job, which skips VAD and recognition and labels the existing system lines (`relabelLocal`), so it works for meetings Deepgram transcribed too. It writes the new "Speaker n" names (`db.setSegmentSpeakers`) and the count in one transaction, replaces names from Map speakers, and is refused while recording, transcribing, analyzing or already detecting (`relabelSpeakers` is refused meanwhile too). Needs the speaker-label models. On the 29-minute meeting with 8 given: 200 s, exactly 8 voices.
 - `util.ts`: `toRawSegments` (above) and `testWav`, the self-test tone.
 - **Tests:** `test/localStt.test.ts` covers models, helpers, and the engine with a fake worker. `test/localStt.integration.test.ts` uses the real addon, model and meeting audio, and **skips unless** `spike/sherpa/models` and the audio exist, or `MB_STT_MODELS` / `MB_STT_AUDIO` are set, so CI skips it. `vitest.config.ts` stubs `?modulePath` imports with an `enforce: 'pre'` plugin, because otherwise Vite would import the worker itself.
 
@@ -263,5 +272,5 @@ Offline and free, with sherpa-onnx. The choice of model and the numbers behind i
 ## Known limitations
 
 - Windows only: the detector and loopback capture are Windows-specific.
-- Local speech-to-text is English-only, and its speaker labels over-split voices (merge them on the meeting page). Hinglish goes to a cloud provider: whisper.cpp large-v3-turbo writes good Hindi but ran at 2–3× real time on a 4-core CPU (`spike/whispercpp/FINDINGS.md`; a Vulkan/GPU build is the next thing to try).
+- Local speech-to-text is English-only, and without an expected speaker count its labels over-split voices (give the count, or merge them on the meeting page). Hinglish goes to a cloud provider: whisper.cpp large-v3-turbo writes good Hindi but ran at 2–3× real time on a 4-core CPU (`spike/whispercpp/FINDINGS.md`; a Vulkan/GPU build is the next thing to try).
 - Single-user, with no code signing.

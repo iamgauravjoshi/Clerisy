@@ -19,6 +19,7 @@ const DEFAULTS: StoredSettings = {
   sttCloudFallback: 'none',
   localSpeakerLabels: true,
   autoDetect: true,
+  floatingWidget: true,
   hotkeyRecord: 'CommandOrControl+Shift+M',
   hotkeyMark: 'CommandOrControl+Shift+D',
   chunkSeconds: 30,

@@ -202,8 +202,8 @@ function Shell() {
           sourceApp={recording.startPrompt.sourceApp}
           defaultProjectId={currentProjectId ?? localStorage.getItem(LAST_PROJECT) ?? projects[0]?.id}
           onClose={recording.closeStartPrompt}
-          onStart={async (pid, title) => {
-            await recording.start(pid, title, recording.startPrompt?.sourceApp ?? '')
+          onStart={async (pid, title, expectedSpeakers) => {
+            await recording.start(pid, title, recording.startPrompt?.sourceApp ?? '', expectedSpeakers)
             recording.closeStartPrompt()
           }}
         />

@@ -35,6 +35,12 @@ export function RecordingSection({
         hint="Offers to record when Zoom, Teams, Meet in the browser, Slack, Discord, Webex and similar apps start using the microphone."
       />
       <Switch
+        checked={value.floatingWidget}
+        onChange={(floatingWidget) => onChange({ floatingWidget })}
+        label="Show floating meeting controls"
+        hint="A small window that stays on top of your meeting app while recording: the timer, the latest line, and buttons to mark a moment or stop. It also offers to record a detected meeting."
+      />
+      <Switch
         checked={value.launchAtLogin}
         onChange={(launchAtLogin) => onChange({ launchAtLogin })}
         disabled={!loginItem.supported}

@@ -65,7 +65,12 @@ export interface Meeting {
   status: MeetingStatus
   sourceApp: string
   error: string | null // why transcription or analysis last failed, or why the meeting was interrupted
+  /** how many people besides you, when the user said; local speaker labels then find exactly that many voices */
+  expectedSpeakers: number | null
 }
+
+/** The most voices Expected speaker count accepts. */
+export const MAX_EXPECTED_SPEAKERS = 30
 
 export type SegmentSource = 'mic' | 'system' | 'manual'
 
@@ -223,6 +228,8 @@ export interface Settings {
   /** with the local provider: label the other participants' voices as Speaker 1, 2… after the meeting */
   localSpeakerLabels: boolean
   autoDetect: boolean
+  /** the small always-on-top window with the recording controls, and the "meeting detected" prompt */
+  floatingWidget: boolean
   hotkeyRecord: string
   hotkeyMark: string
   chunkSeconds: number
@@ -300,6 +307,13 @@ export type StreamProgress =
 /** A meeting's final transcription, by stream; a stream with no recording is left out. */
 export type TranscriptionProgress = Partial<Record<'mic' | 'system', StreamProgress>>
 
+/** What the floating widget shows (null: it's hidden). */
+export type WidgetState = { mode: 'recording'; meetingId: string; title: string; startedAt: number } | { mode: 'detected'; app: string }
+
+/** What the widget's buttons ask main to do. */
+export const WIDGET_ACTIONS = ['stop', 'mark', 'record', 'open', 'dismiss'] as const
+export type WidgetAction = (typeof WIDGET_ACTIONS)[number]
+
 export interface DetectedMeeting {
   app: string
   exe: string
@@ -328,6 +342,8 @@ export interface MainEvents {
   'localModel:status': [status: LocalModelStatus]
   /** null once the final transcription is over */
   'meeting:progress': [meetingId: string, progress: TranscriptionProgress | null]
+  /** to the floating widget: what to show, or null to hide */
+  'widget:state': [state: WidgetState | null]
 }
 
 // a Record must name every event exactly once, so the preload's allow-list can't drift from MainEvents
@@ -342,7 +358,8 @@ const EVENT_NAMES: Record<keyof MainEvents, true> = {
   'app:quit-requested': true,
   'update:status': true,
   'localModel:status': true,
-  'meeting:progress': true
+  'meeting:progress': true,
+  'widget:state': true
 }
 /** The channels the preload lets the renderer subscribe to. */
 export const MAIN_EVENTS = Object.keys(EVENT_NAMES) as (keyof MainEvents)[]

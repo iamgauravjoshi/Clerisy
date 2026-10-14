@@ -24,7 +24,12 @@ port.on('message', (e: { data: TranscribeRequest }) => {
           send({ type: 'progress', id: req.id, done, total })
         }
       },
-      { speakers: req.speakers, onSpeakers: () => send({ type: 'speakers', id: req.id }) }
+      {
+        speakers: req.speakers,
+        numSpeakers: req.numSpeakers,
+        relabel: req.relabel,
+        onSpeakers: () => send({ type: 'speakers', id: req.id })
+      }
     )
     send({ type: 'result', id: req.id, lines, stats })
   } catch (err) {

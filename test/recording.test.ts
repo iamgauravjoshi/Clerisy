@@ -38,6 +38,11 @@ vi.mock('../src/main/settings', () => ({ getSettings: () => settings }))
 vi.mock('../src/main/llm', () => ({}))
 vi.mock('../src/main/analysis', () => ({ analyzeMeeting, applyApproved: vi.fn() }))
 // real mergeStreams, scripted speech-to-text
+const relabelLocal = vi.hoisted(() => vi.fn())
+vi.mock('../src/main/localStt', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../src/main/localStt')>()),
+  relabelLocal
+}))
 vi.mock('../src/main/stt', async (importOriginal) => ({ ...(await importOriginal<typeof import('../src/main/stt')>()), transcribe }))
 
 import * as db from '../src/main/db'
@@ -157,7 +162,8 @@ describe('finishing a meeting', () => {
     expect(texts(id).sort()).toEqual(['final mic echo foxtrot', 'final system golf hotel'])
     expect(db.getMeeting(id)?.error).toBeNull()
     expect(transcribe).toHaveBeenLastCalledWith(settings, expect.anything(), 'audio/webm', 'system', 0, FILE_TIMEOUT_MS, {
-      onProgress: expect.any(Function)
+      onProgress: expect.any(Function),
+      expectedSpeakers: null
     })
   })
 
@@ -299,5 +305,46 @@ describe('events', () => {
     await settled(m.id)
     expect(sent).not.toContain('recording:changed')
     expect(sent).toContain('meeting:changed')
+  })
+})
+
+describe('expected speaker count', () => {
+  it('keeps the count given at the start, and passes it to the other participants’ transcription only', async () => {
+    const m = api.startRecording(projectId, 'T', '', 4)
+    expect(db.getMeeting(m.id)?.expectedSpeakers).toBe(4)
+    api.appendRecordingChunk(m.id, 'mic', bytes('m'))
+    api.appendRecordingChunk(m.id, 'system', bytes('s'))
+    transcribe.mockResolvedValue([])
+    api.stopRecording(m.id)
+    await settled(m.id)
+    const opts = (src: string) => transcribe.mock.calls.find((c) => c[3] === src)?.[6]
+    expect(opts('system')).toMatchObject({ expectedSpeakers: 4 })
+    expect(opts('mic')).toMatchObject({ expectedSpeakers: undefined })
+    transcribe.mockReset()
+  })
+
+  it('detects speakers again on the saved recording: relabels the other participants’ lines and keeps the count', async () => {
+    const m = api.startRecording(projectId, 'T', '')
+    api.appendRecordingChunk(m.id, 'system', bytes('s'))
+    db.addSegments(m.id, [
+      said('first remote line here', 'system', 0),
+      said('my own line here', 'mic', 3),
+      said('second remote line here', 'system', 6)
+    ])
+    db.updateMeeting(m.id, { status: 'ready' })
+    relabelLocal.mockResolvedValueOnce(['Speaker 1', 'Speaker 2'])
+    expect(await api.detectSpeakers(m.id, 2)).toEqual({ speakers: 2 })
+    const [, lines, count] = relabelLocal.mock.calls.at(-1) as [unknown, { text: string }[], number]
+    expect(lines.map((l) => l.text)).toEqual(['first remote line here', 'second remote line here'])
+    expect(count).toBe(2)
+    expect(db.listSegments(m.id).map((g) => g.speaker)).toEqual(['Speaker 1', 'Me', 'Speaker 2'])
+    expect(db.getMeeting(m.id)?.expectedSpeakers).toBe(2)
+  })
+
+  it('refuses without a recording of the other participants, or while transcribing', async () => {
+    const m = api.startRecording(projectId, 'T', '')
+    await expect(api.detectSpeakers(m.id, 2)).rejects.toThrow('Wait until the meeting is transcribed.')
+    db.updateMeeting(m.id, { status: 'ready' })
+    await expect(api.detectSpeakers(m.id, 2)).rejects.toThrow('no recording of the other participants')
   })
 })

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ITEM_TYPES, MAX_QUESTION_LENGTH } from '@shared/types'
+import { ITEM_TYPES, MAX_EXPECTED_SPEAKERS, MAX_QUESTION_LENGTH, WIDGET_ACTIONS } from '@shared/types'
 import type { Api } from './api'
 
 // Everything that arrives over IPC is untrusted: these schemas check every argument of every api function
@@ -7,6 +7,7 @@ import type { Api } from './api'
 
 const id = z.uuid()
 const short = z.string().max(500)
+const speakerCount = z.number().int().min(1).max(MAX_EXPECTED_SPEAKERS)
 const long = z.string().max(100_000)
 const bytes = z.instanceof(Uint8Array).refine((b) => b.byteLength <= 50 * 1024 * 1024, 'Audio chunk is too large')
 const seconds = z.number().finite().min(0)
@@ -40,6 +41,7 @@ export const SETTINGS_FIELDS = {
   sttCloudFallback: z.enum(['none', 'deepgram', 'openai', 'groq']),
   localSpeakerLabels: z.boolean(),
   autoDetect: z.boolean(),
+  floatingWidget: z.boolean(),
   hotkeyRecord: z.string().max(100),
   hotkeyMark: z.string().max(100),
   chunkSeconds: z
@@ -94,12 +96,13 @@ export const API_ARGS = {
   renameMeeting: z.tuple([id, short]),
   deleteMeeting: z.tuple([id]),
   getTranscript: z.tuple([id]),
+  detectSpeakers: z.tuple([id, speakerCount.nullable()]),
   relabelSpeakers: z.tuple([id, z.record(short, short).refine((m) => Object.keys(m).length <= 500, 'Too many speakers')]),
   importTranscript: z.tuple([id, short, z.string().max(20_000_000)]),
   pickTranscriptFile: z.tuple([]),
   importAudio: z.tuple([id]),
 
-  startRecording: z.tuple([id, short, short]),
+  startRecording: z.tuple([id, short, short, speakerCount.nullable().optional()]),
   recordingChunk: z.tuple([id, source, seconds, bytes]),
   appendRecordingChunk: z.tuple([id, source, bytes]),
   getAudioUsage: z.tuple([]),
@@ -108,6 +111,8 @@ export const API_ARGS = {
   hasRecording: z.tuple([id]),
   transcribeRecording: z.tuple([id]),
   getMeetingProgress: z.tuple([id]),
+  getWidgetState: z.tuple([]),
+  widgetAction: z.tuple([z.enum(WIDGET_ACTIONS)]),
   addMark: z.tuple([id, seconds, short]),
   stopRecording: z.tuple([id]),
 

@@ -52,6 +52,7 @@ export const SETTINGS: Settings = {
   sttCloudFallback: 'none',
   localSpeakerLabels: true,
   autoDetect: false,
+  floatingWidget: true,
   hotkeyRecord: 'CommandOrControl+Shift+M',
   hotkeyMark: 'CommandOrControl+Shift+D',
   chunkSeconds: 30,
@@ -94,7 +95,8 @@ export const MEETING = {
   endedAt: NOW,
   status: 'analyzed' as const,
   sourceApp: 'import',
-  error: null
+  error: null,
+  expectedSpeakers: null
 }
 export const SEGMENT = {
   id: 's1',

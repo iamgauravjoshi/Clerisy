@@ -12,7 +12,9 @@ import type {
   StreamProgress,
   SttProvider,
   TranscriptionProgress,
-  UpdateStatus
+  UpdateStatus,
+  WidgetAction,
+  WidgetState
 } from '@shared/types'
 import * as db from './db'
 import { analyzeMeeting, applyApproved } from './analysis'
@@ -33,7 +35,8 @@ import {
   downloadLocalModel,
   localModelStatus,
   onLocalModelStatus,
-  testLocalStt
+  testLocalStt,
+  relabelLocal
 } from './localStt'
 
 const audioRoot = (): string => join(app.getPath('userData'), 'audio')
@@ -89,6 +92,12 @@ export function setUpdater(u: Updater): void {
 // the local model's download progress and installs, for Settings › Transcription
 onLocalModelStatus((status) => broadcast('localModel:status', status))
 
+// the floating widget lives in index.ts (it needs the windows and the recording state); its page calls through these
+let widget: { state: () => WidgetState | null; act: (action: WidgetAction) => void } = { state: () => null, act: () => {} }
+export function setWidgetHandler(handler: typeof widget): void {
+  widget = handler
+}
+
 export let showMainWindow: () => void = () => {}
 export function setShowMainWindow(fn: () => void): void {
   showMainWindow = fn
@@ -98,6 +107,9 @@ const STREAMS = ['mic', 'system'] as const
 type Stream = (typeof STREAMS)[number]
 const streamFile = (meetingId: string, source: Stream): string => join(audioDir(meetingId), `${source}.webm`)
 const errText = (e: unknown): string => (e instanceof Error ? e.message : String(e))
+
+// meetings whose speakers are being detected again (detectSpeakers); renaming them meanwhile would be overwritten
+const detecting = new Set<string>()
 
 // the final transcription's progress per meeting, for the meeting page (meeting:progress, getMeetingProgress)
 const progress = new Map<string, TranscriptionProgress>()
@@ -123,7 +135,11 @@ async function transcribeRecordings(s: Settings, meetingId: string): Promise<str
     STREAMS.map(async (src, i) => {
       if (!files[i]) return []
       try {
-        const segs = await transcribe(s, files[i], 'audio/webm', src, 0, FILE_TIMEOUT_MS, { onProgress: (p) => report(src, p) })
+        const segs = await transcribe(s, files[i], 'audio/webm', src, 0, FILE_TIMEOUT_MS, {
+          onProgress: (p) => report(src, p),
+          // the count the user gave covers the other participants, so it only applies to the system stream
+          expectedSpeakers: src === 'system' ? db.getMeeting(meetingId)?.expectedSpeakers : undefined
+        })
         report(src, { stage: 'done' })
         return segs
       } catch (e) {
@@ -276,7 +292,40 @@ export const api = {
     // a transcription would replace the lines, and an analysis would save its proposals with the old names
     if (status === 'recording' || status === 'transcribing') throw new Error('Wait until the meeting is transcribed.')
     if (status === 'analyzing') throw new Error('An analysis is running for this meeting. Try again after it finishes.')
+    if (detecting.has(meetingId)) throw new Error('Speakers are being detected again for this meeting. Try again when it finishes.')
     db.relabelSpeakers(meetingId, map)
+  },
+  /**
+   * Detect speakers again: runs only the local voice matching on the saved system-audio recording, with the number of
+   * people the user gives (or none: cluster by distance), and relabels the other participants' lines "Speaker n".
+   * Doesn't transcribe again, so it also works for meetings Deepgram transcribed. Names from Map speakers are replaced.
+   */
+  detectSpeakers: async (meetingId: string, expectedSpeakers: number | null): Promise<{ speakers: number }> => {
+    const meeting = db.getMeeting(meetingId)
+    if (!meeting) throw new Error('Meeting not found')
+    if (meeting.status === 'recording' || meeting.status === 'transcribing') throw new Error('Wait until the meeting is transcribed.')
+    if (meeting.status === 'analyzing') throw new Error('An analysis is running for this meeting. Try again after it finishes.')
+    if (detecting.has(meetingId)) throw new Error('Speakers are already being detected for this meeting.')
+    const file = streamFile(meetingId, 'system')
+    if (!existsSync(file) || statSync(file).size === 0)
+      throw new Error("This meeting has no recording of the other participants, so their voices can't be told apart.")
+    const lines = db.listSegments(meetingId).filter((g) => g.source === 'system')
+    if (!lines.length) throw new Error('This meeting has no transcript lines from the other participants yet.')
+    detecting.add(meetingId)
+    try {
+      const labels = await relabelLocal(readFileSync(file), lines, expectedSpeakers)
+      db.tx(() => {
+        db.setSegmentSpeakers(
+          meetingId,
+          lines.map((l, i) => ({ id: l.id, speaker: labels[i] }))
+        )
+        db.updateMeeting(meetingId, { expectedSpeakers })
+      })
+      broadcast('meeting:changed', meetingId)
+      return { speakers: new Set(labels).size }
+    } finally {
+      detecting.delete(meetingId)
+    }
   },
 
   /** Creates a meeting from pasted or uploaded transcript text. */
@@ -329,8 +378,9 @@ export const api = {
   },
 
   // live recording (audio capture runs in the renderer; it hands chunks to these handlers)
-  startRecording: (projectId: string, title: string, sourceApp: string) => {
-    const m = db.createMeeting(projectId, title, 'recording', sourceApp)
+  /** expectedSpeakers: how many people besides you, when you know (local speaker labels find exactly that many) */
+  startRecording: (projectId: string, title: string, sourceApp: string, expectedSpeakers: number | null = null) => {
+    const m = db.createMeeting(projectId, title, 'recording', sourceApp, expectedSpeakers)
     mkdirSync(audioDir(m.id), { recursive: true })
     return m
   },
@@ -390,6 +440,9 @@ export const api = {
     void finishMeeting(meetingId)
   },
   /** The final transcription's progress, while it runs; null otherwise. */
+  // the floating widget
+  getWidgetState: (): WidgetState | null => widget.state(),
+  widgetAction: (action: WidgetAction): void => widget.act(action),
   getMeetingProgress: (meetingId: string): TranscriptionProgress | null => progress.get(meetingId) ?? null,
   addMark: (meetingId: string, t: number, kind: string) => db.addMark(meetingId, t, kind),
   stopRecording: (meetingId: string) => {

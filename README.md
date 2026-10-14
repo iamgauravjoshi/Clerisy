@@ -15,6 +15,7 @@ Project context → meeting capture (no bot) → transcript → AI impact analys
 - **Botless capture**: records your mic and your system audio as separate streams, so it works with Zoom, Teams, Google Meet in any browser, Slack, Discord and others.
 - **Meeting auto-detection**: watches which apps are using the microphone (Windows privacy registry) and offers to record. When the meeting app releases the mic, recording stops automatically.
 - **Starts with Windows**: the installed app opens quietly in the tray when you sign in, so meetings are detected without opening it first. You can turn this off in Settings › Recording and hotkeys.
+- **Floating meeting controls**: while recording, a small window stays on top of your meeting app with the timer, the latest transcript line, and buttons to mark a moment, stop, or open MeetingBuddy. When a meeting app starts using the microphone, it offers to record. Drag it anywhere; it remembers where. You can turn it off in Settings › Recording.
 - **Global hotkeys**: `Ctrl+Shift+M` starts and stops recording; `Ctrl+Shift+D` marks an important moment, which the AI then weights more heavily.
 - **Live transcript** in roughly 30-second chunks, then a final full-file transcription for consistent speaker labels. The meeting page shows the final transcription's progress for your microphone and for the other participants. With local transcription, a slow computer skips preview chunks instead of falling behind.
 - **Bring your own model**: Claude, OpenAI, Gemini, OpenRouter, Ollama (local) or any OpenAI-compatible server. Keys are encrypted with Windows DPAPI.
@@ -88,6 +89,6 @@ Drafts are invisible to the updater, so nothing reaches users until step 4. Keep
 
 - Windows only for now. macOS needs ScreenCaptureKit audio capture and a different mic-usage detector.
 - Local (offline) speech-to-text understands English only. Hindi and Hinglish meetings need a cloud provider.
-- Speaker separation numbers voices, and local speaker labels often split one person into two or more. Use **Merge speakers** on a meeting page to join them, and **Map speakers** to assign real names.
+- Speaker separation numbers voices, and local speaker labels often split one person into two or more. Say how many other people are in the meeting when you start recording (or later with **Detect speakers again**), and local speaker labels find exactly that many voices. Use **Merge speakers** on a meeting page to join voices, and **Map speakers** to assign real names.
 - The app is single-user. Team sync, roles and multi-recorder merging are planned for v2.
 - There is no code signing yet, so Windows SmartScreen warns on first install.

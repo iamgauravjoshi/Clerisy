@@ -16,7 +16,9 @@ import { join } from 'node:path'
 import { autoUpdater } from 'electron-updater'
 import { pathToFileURL } from 'node:url'
 import { openDb, recoverInterruptedMeetings } from './db'
-import { api, broadcast, removeOrphanedAudio, setShowMainWindow, setUpdater, sweepExpiredAudio } from './api'
+import { api, broadcast, removeOrphanedAudio, setShowMainWindow, setUpdater, setWidgetHandler, sweepExpiredAudio } from './api'
+import { getMeeting } from './db'
+import { FloatingWidget } from './widget'
 import { Updater } from './updater'
 import { stopLocalStt } from './localStt'
 import { MeetingDetector } from './detector'
@@ -24,7 +26,7 @@ import { applyLoginItem, applyTheme, getSettings } from './settings'
 import { appIconPath, trayImage } from './icons'
 import { isHiddenLaunch } from './startup'
 import { isSafeExternalUrl, isTrustedAppUrl, parseApiArgs, RECORDING_STATE } from './ipc'
-import type { DetectedMeeting, RecordingState } from '@shared/types'
+import type { DetectedMeeting, RecordingState, WidgetAction } from '@shared/types'
 
 let win: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -33,6 +35,9 @@ let quitPrompted = false
 let recording: RecordingState = { active: false, meetingId: null, projectId: null, startedAt: null }
 const detector = new MeetingDetector()
 let updater: Updater | null = null
+let widget: FloatingWidget | null = null
+// a meeting app the detector saw while nothing was recording, until the user records or dismisses it
+let detectedApp: string | null = null
 // started by Windows at sign-in: stay in the tray until the user opens the window
 const startHidden = isHiddenLaunch(process.argv)
 // the only page this app loads; IPC, navigation, capture and permissions are limited to it
@@ -172,6 +177,47 @@ function registerHotkeys(): void {
   tryReg(s.hotkeyMark, () => broadcast('hotkey:mark'))
 }
 
+/** Shows the floating widget for the recording, or the detected meeting, or hides it (also when it's turned off). */
+function updateWidget(): void {
+  if (!widget) return
+  if (!getSettings().floatingWidget) widget.hide()
+  else if (recording.active && recording.meetingId && recording.startedAt) {
+    const title = getMeeting(recording.meetingId)?.title ?? 'Meeting'
+    widget.show({ mode: 'recording', meetingId: recording.meetingId, title, startedAt: recording.startedAt })
+  } else if (detectedApp) widget.show({ mode: 'detected', app: detectedApp })
+  else widget.hide()
+}
+
+/** The widget's buttons. Recording itself stays with the main window's renderer, through the hotkey events it handles. */
+function widgetAction(action: WidgetAction): void {
+  switch (action) {
+    case 'stop':
+      if (recording.active) broadcast('hotkey:record', '')
+      break
+    case 'mark':
+      if (recording.active) broadcast('hotkey:mark')
+      break
+    case 'record':
+      if (!recording.active) {
+        const app = detectedApp ?? ''
+        detectedApp = null
+        updateWidget()
+        // the start dialog (which project?) is in the main window
+        showWindow()
+        broadcast('hotkey:record', app)
+      }
+      break
+    case 'open':
+      showWindow()
+      if (recording.meetingId) broadcast('navigate:meeting', recording.meetingId)
+      break
+    case 'dismiss':
+      detectedApp = null
+      updateWidget()
+      break
+  }
+}
+
 function applyDetector(): void {
   if (getSettings().autoDetect) detector.start()
   else detector.stop()
@@ -180,6 +226,8 @@ function applyDetector(): void {
 detector.on('start', (d: DetectedMeeting) => {
   if (recording.active) return
   broadcast('meeting:detected', d)
+  detectedApp = d.app
+  updateWidget()
   if (!Notification.isSupported()) return
   const n = new Notification({
     title: `Meeting detected: ${d.app}`,
@@ -194,6 +242,11 @@ detector.on('start', (d: DetectedMeeting) => {
 })
 detector.on('end', () => {
   if (recording.active) broadcast('meeting:ended')
+  else if (detectedApp) {
+    // the meeting ended before anyone recorded it
+    detectedApp = null
+    updateWidget()
+  }
 })
 
 function quitNow(): void {
@@ -263,7 +316,9 @@ app.whenReady().then(() => {
     const state = RECORDING_STATE.safeParse(s)
     if (!fromApp(e.senderFrame) || !state.success) return
     recording = state.data
+    if (recording.active) detectedApp = null
     refreshTray()
+    updateWidget()
   })
   ipcMain.on('app:quit-ready', (e) => {
     if (fromApp(e.senderFrame)) quitNow()
@@ -273,6 +328,8 @@ app.whenReady().then(() => {
     registerHotkeys()
     refreshTray()
     applyDetector()
+    // Settings were saved: the widget may have been turned on or off
+    updateWidget()
   })
 
   // the app needs the microphone (and screen capture for system audio); nothing else, and only for its own page
@@ -303,6 +360,14 @@ app.whenReady().then(() => {
   }
   nativeTheme.on('updated', () => win?.setBackgroundColor(canvasColor()))
   createWindow()
+  widget = new FloatingWidget({
+    url: appUrl,
+    preload: join(__dirname, '../preload/index.js'),
+    positionFile: join(app.getPath('userData'), 'widget.json'),
+    background: canvasColor,
+    isTrustedUrl: (url) => isTrustedAppUrl(url, appUrl)
+  })
+  setWidgetHandler({ state: () => widget?.current ?? null, act: widgetAction })
   updater = new Updater(app.isPackaged ? autoUpdater : null, {
     onStatus: (status) => {
       broadcast('update:status', status)

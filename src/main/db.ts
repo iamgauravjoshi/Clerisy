@@ -105,7 +105,9 @@ CREATE TABLE questions (
   model TEXT NOT NULL, created_at TEXT NOT NULL
 );
 CREATE INDEX questions_project ON questions(project_id, created_at);
-`
+`,
+  // 6: how many people besides the user were in the meeting, when they said (local speaker labels)
+  `ALTER TABLE meetings ADD COLUMN expected_speakers INTEGER;`
 ]
 
 export function openDb(file: string): void {
@@ -199,7 +201,8 @@ const toMeeting = (r: Row): Meeting => ({
   endedAt: r.ended_at,
   status: r.status,
   sourceApp: r.source_app,
-  error: r.error
+  error: r.error,
+  expectedSpeakers: r.expected_speakers ?? null
 })
 const toSegment = (r: Row): Segment => ({
   id: r.id,
@@ -375,29 +378,41 @@ export function getMeeting(mid: string): Meeting | null {
   const r = db.prepare('SELECT * FROM meetings WHERE id = ?').get(mid) as Row | undefined
   return r ? toMeeting(r) : null
 }
-export function createMeeting(pid: string, title: string, status: MeetingStatus, sourceApp = ''): Meeting {
-  const m: Meeting = { id: id(), projectId: pid, title, startedAt: now(), endedAt: null, status, sourceApp, error: null }
-  db.prepare('INSERT INTO meetings (id, project_id, title, started_at, ended_at, status, source_app) VALUES (?, ?, ?, ?, NULL, ?, ?)').run(
-    m.id,
-    pid,
-    title,
-    m.startedAt,
-    status,
-    sourceApp
-  )
+export function createMeeting(
+  pid: string,
+  title: string,
+  status: MeetingStatus,
+  sourceApp = '',
+  expectedSpeakers: number | null = null
+): Meeting {
+  const m: Meeting = { id: id(), projectId: pid, title, startedAt: now(), endedAt: null, status, sourceApp, error: null, expectedSpeakers }
+  db.prepare(
+    'INSERT INTO meetings (id, project_id, title, started_at, ended_at, status, source_app, expected_speakers) VALUES (?, ?, ?, ?, NULL, ?, ?, ?)'
+  ).run(m.id, pid, title, m.startedAt, status, sourceApp, expectedSpeakers)
   return m
 }
-export function updateMeeting(mid: string, patch: Partial<Pick<Meeting, 'title' | 'status' | 'endedAt' | 'error'>>): void {
+export function updateMeeting(
+  mid: string,
+  patch: Partial<Pick<Meeting, 'title' | 'status' | 'endedAt' | 'error' | 'expectedSpeakers'>>
+): void {
   const cur = getMeeting(mid)
   if (!cur) return
   const n = { ...cur, ...patch }
-  db.prepare('UPDATE meetings SET title = ?, status = ?, ended_at = ?, error = ? WHERE id = ?').run(
+  db.prepare('UPDATE meetings SET title = ?, status = ?, ended_at = ?, error = ?, expected_speakers = ? WHERE id = ?').run(
     n.title,
     n.status,
     n.endedAt,
     n.error,
+    n.expectedSpeakers,
     mid
   )
+}
+/** Sets the speaker of these lines (Detect speakers again). */
+export function setSegmentSpeakers(mid: string, speakers: { id: string; speaker: string }[]): void {
+  const stmt = db.prepare('UPDATE segments SET speaker = ? WHERE id = ? AND meeting_id = ?')
+  tx(() => {
+    for (const s of speakers) stmt.run(s.speaker, s.id, mid)
+  })
 }
 /**
  * Startup recovery: meetings left in 'recording' or 'transcribing' were cut off by a quit or crash.
