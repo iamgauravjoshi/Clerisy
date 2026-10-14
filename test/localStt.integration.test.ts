@@ -55,7 +55,7 @@ describe.skipIf(!ready)('local transcription with the real model', () => {
   })
 
   // the speaker models in the app's layout (models/speakers/…) or the spike's (FINDINGS.md §3)
-  const app = resolveModel(MODELS, 'parakeet-en').speakers
+  const app = ready ? resolveModel(MODELS, 'parakeet-en').speakers : undefined
   const spike = {
     segmentation: join(MODELS, 'sherpa-onnx-pyannote-segmentation-3-0', 'model.onnx'),
     embedding: join(MODELS, 'campplus_en.onnx')
