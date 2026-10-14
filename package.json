@@ -13,7 +13,8 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome ci .",
-    "icons": "node scripts/build-icons.mjs"
+    "icons": "node scripts/build-icons.mjs",
+    "site": "node scripts/serve-site.mjs"
   },
   "author": "Clerisy",
   "license": "UNLICENSED",

@@ -18,5 +18,10 @@ with `npx electron . --user-data-dir=<dir>`, take screenshots at 1440Ã—900 at 2Ã
 
 ## Preview locally
 
-Any static server, for example `npx serve website`. Opening the files directly works too, but the root-relative links (`/privacy`)
-need a server.
+From the repository root:
+
+```bash
+npm run site
+```
+
+Then open http://localhost:4321. It serves this folder the way Vercel does (clean URLs like `/privacy`, and the 404 page), with no dependencies to install. Edit a file and refresh the browser to see the change. Double-clicking `index.html` also opens it, but the links between pages (`/privacy`) and the images use paths from the site root, so they only work through a server.
