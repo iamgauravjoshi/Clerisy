@@ -17,7 +17,9 @@ const MB = 1024 * 1024
 const MODEL = (patch: Partial<LocalModelStatus> = {}): LocalModelStatus => ({
   label: 'Parakeet TDT 0.6B v2 (English)',
   bytes: 662 * MB,
+  remainingBytes: 662 * MB,
   installed: false,
+  speakerLabels: false,
   download: { state: 'idle' },
   ...patch
 })
@@ -84,6 +86,33 @@ describe('local model card', () => {
     await act(async () => fireEvent.click(within(dialog).getByRole('button', { name: 'Delete model' })))
     expect(calls(invoke, 'deleteLocalModel')).toEqual([[]])
     expect(await screen.findByRole('button', { name: 'Download (662 MB)' })).toBeTruthy()
+  })
+})
+
+describe('speaker labels', () => {
+  it('offers the speaker-label models to a model downloaded before them, at their own size', async () => {
+    const { invoke } = setup(MODEL({ installed: true, remainingBytes: 34 * MB }), {
+      downloadLocalModel: () => MODEL({ installed: true, speakerLabels: true, remainingBytes: 0 })
+    })
+    expect(await screen.findByText(/They need 34 MB more/)).toBeTruthy()
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Download speaker labels (34 MB)' })))
+    expect(calls(invoke, 'downloadLocalModel')).toEqual([[]])
+    expect(screen.queryByText(/They need/)).toBeNull()
+  })
+
+  it('shows what is left when a download was interrupted', async () => {
+    setup(MODEL({ remainingBytes: 300 * MB }))
+    expect(await screen.findByRole('button', { name: 'Download (300 MB)' })).toBeTruthy()
+  })
+
+  it('can be turned off, and saves that', async () => {
+    const { invoke } = setup(MODEL({ installed: true, speakerLabels: true, remainingBytes: 0 }))
+    const toggle = await screen.findByRole('switch', { name: /Label the other participants’ voices/ })
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(toggle)
+    await act(async () => fireEvent.click(within(saveBar()!).getByRole('button', { name: 'Save changes' })))
+    const [[patch]] = calls(invoke, 'saveSettings') as [[Record<string, unknown>]]
+    expect(patch).toMatchObject({ localSpeakerLabels: false })
   })
 })
 

@@ -19,7 +19,8 @@ export const STT_PROVIDERS: ProviderInfo<SttProvider>[] = [
   {
     id: 'local',
     label: 'Local (free, English)',
-    description: 'Runs on this computer: no API key, and audio never leaves it. English only; needs a one-time 631 MB download.'
+    description:
+      'Runs on this computer: no API key, and audio never leaves it. English only, with speaker labels; needs a one-time 665 MB download.'
   },
   {
     id: 'deepgram',

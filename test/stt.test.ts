@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Settings } from '@shared/types'
 
 vi.mock('../src/main/settings', () => ({ getSecret: () => 'test-key' }))
+const transcribeLocal = vi.hoisted(() => vi.fn(async () => []))
+vi.mock('../src/main/localStt', () => ({ transcribeLocal }))
 import { transcribe } from '../src/main/stt'
 
 const settings = (sttProvider: Settings['sttProvider']) => ({ sttProvider, sttModel: '', selfName: 'Me' }) as Settings
@@ -134,5 +136,23 @@ describe('meeting language and routing', () => {
         1000
       )
     ).rejects.toThrow('Local transcription understands English only')
+  })
+})
+
+describe('local transcription', () => {
+  const local = (patch: Partial<Settings> = {}) =>
+    ({ sttProvider: 'local', sttLanguage: 'en', sttCloudFallback: 'none', localSpeakerLabels: true, selfName: 'Me', ...patch }) as Settings
+  const speakersAsked = () => (transcribeLocal.mock.calls.at(-1) as unknown[])[4] as { speakers: boolean }
+
+  it('labels speakers only on the system stream’s whole recording, and only when the setting is on', async () => {
+    await transcribe(local(), Buffer.from('x'), 'audio/webm', 'system', 0, 1000)
+    expect(speakersAsked().speakers).toBe(true)
+    await transcribe(local(), Buffer.from('x'), 'audio/webm', 'mic', 0, 1000)
+    expect(speakersAsked().speakers).toBe(false)
+    // a live chunk is too short, and its numbers wouldn't match the next chunk's
+    await transcribe(local(), Buffer.from('x'), 'audio/webm', 'system', 30, 1000, { liveKey: 'm:system' })
+    expect(speakersAsked()).toMatchObject({ speakers: false, liveKey: 'm:system' })
+    await transcribe(local({ localSpeakerLabels: false }), Buffer.from('x'), 'audio/webm', 'system', 0, 1000)
+    expect(speakersAsked().speakers).toBe(false)
   })
 })

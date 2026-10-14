@@ -17,6 +17,7 @@ const DEFAULTS: StoredSettings = {
   // English: what Deepgram already assumed, and it stops Whisper guessing other languages on short segments
   sttLanguage: 'en',
   sttCloudFallback: 'none',
+  localSpeakerLabels: true,
   autoDetect: true,
   hotkeyRecord: 'CommandOrControl+Shift+M',
   hotkeyMark: 'CommandOrControl+Shift+D',

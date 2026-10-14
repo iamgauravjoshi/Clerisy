@@ -10,10 +10,12 @@ export function speakerHue(name: string, selfName?: string): Hue {
   return SPEAKER_HUES[h % SPEAKER_HUES.length]
 }
 
-/** Up to two initials: "Priya Shah" → PS, "Speaker 2" → S2. */
+/** Up to two initials: "Priya Shah" → PS, "Speaker 2" → S2, "Speaker 11" → 11 (S1 is Speaker 1's). */
 export function initials(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean)
   if (words.length === 0) return '?'
+  const last = words[words.length - 1]
+  if (words.length > 1 && /^\d{2}$/.test(last)) return last
   if (words.length === 1) return words[0].slice(0, 2).toUpperCase()
   return (words[0][0] + words[words.length - 1][0]).toUpperCase()
 }

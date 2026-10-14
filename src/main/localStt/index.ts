@@ -6,7 +6,7 @@ import { SAMPLE_RATE } from './core'
 import { closeDecoder, decodeAudio } from './decode'
 import { bytesToDownload, checkFreeSpace, deleteFiles, downloadFiles } from './download'
 import { DroppedJobError, LocalSttEngine, type WorkerHandle } from './engine'
-import { LOCAL_MODELS, type LocalModelId, missingModelFiles, modelBytes, modelDownloads, resolveModel } from './models'
+import { hasSpeakerModels, LOCAL_MODELS, type LocalModelId, missingModelFiles, modelBytes, modelDownloads, resolveModel } from './models'
 import { testWav, toRawSegments } from './util'
 import workerPath from './worker?modulePath'
 
@@ -33,6 +33,8 @@ export interface LocalOptions {
   onProgress?: (p: StreamProgress) => void
   /** a live preview chunk of this stream (e.g. `<meetingId>:mic`): it may be dropped for a newer one */
   liveKey?: string
+  /** label voices as Speaker 1, 2…, when the speaker-label models are installed */
+  speakers?: boolean
 }
 
 /**
@@ -44,7 +46,7 @@ export async function transcribeLocal(
   source: SegmentSource,
   offsetSec: number,
   selfName: string,
-  { modelId = 'parakeet-en', onProgress, liveKey }: LocalOptions = {}
+  { modelId = 'parakeet-en', onProgress, liveKey, speakers = false }: LocalOptions = {}
 ): Promise<RawSegment[]> {
   const model = resolveModel(modelsRoot(), modelId)
   onProgress?.({ stage: 'decoding' })
@@ -54,6 +56,8 @@ export async function transcribeLocal(
     const { lines } = await getEngine().transcribe(model, samples, {
       priority: liveKey ? 'live' : 'final',
       liveKey,
+      speakers: speakers && !!model.speakers,
+      onSpeakers: () => onProgress?.({ stage: 'speakers' }),
       onStart: () => onProgress?.({ stage: 'transcribing', done: 0, total: 0 }),
       onProgress: (done, total) => onProgress?.({ stage: 'transcribing', done, total })
     })
@@ -92,7 +96,9 @@ export function localModelStatus(): LocalModelStatus {
   return {
     label: LOCAL_MODELS[MODEL].label,
     bytes: modelBytes(MODEL),
+    remainingBytes: bytesToDownload(modelsRoot(), modelDownloads(MODEL)),
     installed: missingModelFiles(modelsRoot(), MODEL).length === 0,
+    speakerLabels: hasSpeakerModels(modelsRoot()),
     download
   }
 }
@@ -103,7 +109,7 @@ const setDownload = (d: LocalModelStatus['download']): void => {
 }
 
 /**
- * Downloads the model (631 MB): skips what's already there, resumes unfinished files, checks every file's SHA-256.
+ * Downloads the model (665 MB, speaker labels included): skips what's already there, resumes unfinished files, checks every file's SHA-256.
  * Resolves with the final status; failures are part of the status, not thrown, because the UI shows them on the card.
  */
 export async function downloadLocalModel(): Promise<LocalModelStatus> {

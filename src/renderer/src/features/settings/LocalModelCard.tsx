@@ -104,7 +104,23 @@ export function LocalModelCard() {
             className="self-start"
             onClick={() => void download.run(async () => setStatus(await api.downloadLocalModel()))}
           >
-            {d.state === 'error' ? 'Try again' : `Download (${fmtBytes(status.bytes)})`}
+            {d.state === 'error' ? 'Try again' : `Download (${fmtBytes(status.remainingBytes || status.bytes)})`}
+          </Button>
+        </div>
+      )}
+
+      {status.installed && !status.speakerLabels && !active && (
+        <div className="flex flex-wrap items-center gap-3 border-line border-t pt-3">
+          <p className="flex-1 text-fg-secondary text-small">
+            Speaker labels tell the other participants apart as Speaker 1, Speaker 2… They need {fmtBytes(status.remainingBytes)} more.
+          </p>
+          <Button
+            size="sm"
+            icon={Download}
+            loading={download.busy}
+            onClick={() => void download.run(async () => setStatus(await api.downloadLocalModel()))}
+          >
+            {d.state === 'error' ? 'Try again' : `Download speaker labels (${fmtBytes(status.remainingBytes)})`}
           </Button>
         </div>
       )}

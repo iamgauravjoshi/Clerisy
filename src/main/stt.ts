@@ -65,7 +65,9 @@ export async function transcribe(
     // loaded on demand: it brings in Electron and the worker; the engine has its own timeout, scaled to the audio
     const { transcribeLocal } = await import('./localStt')
     const bytes = new Uint8Array(audio.buffer, audio.byteOffset, audio.byteLength)
-    return transcribeLocal(bytes, source, offsetSec, s.selfName, { liveKey, onProgress })
+    // speaker labels need the whole recording: the system stream's final pass (or an import), never a live chunk
+    const speakers = s.localSpeakerLabels && source === 'system' && !liveKey
+    return transcribeLocal(bytes, source, offsetSec, s.selfName, { liveKey, onProgress, speakers })
   }
   checkUploadSize(route.provider, audio.byteLength)
   onProgress?.({ stage: 'sending', provider: route.provider })

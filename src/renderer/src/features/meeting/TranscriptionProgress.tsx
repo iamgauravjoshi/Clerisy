@@ -39,6 +39,8 @@ function describe(p: StreamProgress): { text: string; value?: number; max?: numb
       return p.total
         ? { text: `Transcribing: ${Math.floor((p.done / p.total) * 100)}%`, value: p.done, max: p.total }
         : { text: 'Preparing…' }
+    case 'speakers':
+      return { text: 'Telling speakers apart…' }
     case 'sending':
       return { text: `Sending to ${PROVIDER[p.provider]}…` }
     case 'done':
