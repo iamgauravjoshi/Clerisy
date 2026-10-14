@@ -417,8 +417,24 @@ export function addSegments(mid: string, segs: Omit<Segment, 'id' | 'meetingId' 
     })
   )
 }
-export function renameSpeaker(mid: string, from: string, to: string): void {
-  db.prepare('UPDATE segments SET speaker = ? WHERE meeting_id = ? AND speaker = ?').run(to, mid, from)
+/**
+ * Renames a meeting's speakers all at once, so `{ A: 'B', B: 'A' }` swaps them and `{ 'Speaker 3': 'Speaker 1' }`
+ * merges two voices. The transcript changes with this meeting's proposals (speaker, an owner that is exactly a
+ * speaker's name, and evidence), so the report keeps matching it. The project's item history keeps the names it recorded.
+ */
+export function relabelSpeakers(mid: string, map: Record<string, string>): void {
+  const rename = (name: string): string => (Object.hasOwn(map, name) && map[name].trim()) || name
+  tx(() => {
+    const setSegment = db.prepare('UPDATE segments SET speaker = ? WHERE id = ?')
+    for (const r of db.prepare('SELECT id, speaker FROM segments WHERE meeting_id = ?').all(mid) as Row[]) {
+      if (rename(r.speaker) !== r.speaker) setSegment.run(rename(r.speaker), r.id)
+    }
+    const setProposal = db.prepare('UPDATE proposals SET speaker = ?, owner = ?, evidence = ? WHERE id = ?')
+    for (const r of db.prepare('SELECT id, speaker, owner, evidence FROM proposals WHERE meeting_id = ?').all(mid) as Row[]) {
+      const evidence = (JSON.parse(r.evidence) as Evidence[]).map((e) => ({ ...e, speaker: rename(e.speaker) }))
+      setProposal.run(rename(r.speaker), rename(r.owner), JSON.stringify(evidence), r.id)
+    }
+  })
 }
 
 export function listMarks(mid: string): Mark[] {

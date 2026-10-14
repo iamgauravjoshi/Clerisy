@@ -2,7 +2,7 @@ import { ITEM_TYPES, type Proposal, type Stakeholder } from '@shared/types'
 import { ArrowRight } from 'lucide-react'
 import { useId, useState } from 'react'
 import { SpeakerAvatar } from '../../components/domain'
-import { Banner, Button, Dialog, Field, Icon, Input, Select, Textarea } from '../../components/ui'
+import { Banner, Button, Checkbox, Dialog, Field, Icon, Input, Select, Textarea } from '../../components/ui'
 import { useAction } from '../../hooks/useAction'
 import { ITEM_TYPE_META } from '../../lib/labels'
 
@@ -106,6 +106,109 @@ export function SpeakerMapDialog(props: {
           </li>
         ))}
       </ul>
+      {error && <Banner tone="danger">{error}</Banner>}
+    </Dialog>
+  )
+}
+
+/** A speaker in the transcript, with enough to recognise the voice by what it said. */
+export interface SpeakerSummary {
+  name: string
+  lines: number
+  /** the speaker's longest line */
+  sample: string
+}
+
+/** Speakers of a transcript, most talkative first. */
+export function summarizeSpeakers(segments: { speaker: string; text: string }[]): SpeakerSummary[] {
+  const by = new Map<string, SpeakerSummary>()
+  for (const s of segments) {
+    const cur = by.get(s.speaker) ?? { name: s.speaker, lines: 0, sample: '' }
+    by.set(s.speaker, { ...cur, lines: cur.lines + 1, sample: s.text.length > cur.sample.length ? s.text : cur.sample })
+  }
+  return [...by.values()].sort((a, b) => b.lines - a.lines)
+}
+
+const clip = (t: string, n = 90): string => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t)
+
+/**
+ * Merges speakers that are one person: speaker labels often split a voice in two (spike: FINDINGS.md §3).
+ * Every selected speaker's lines take the name that is kept.
+ */
+export function MergeSpeakersDialog(props: {
+  speakers: SpeakerSummary[]
+  selfName?: string
+  onClose: () => void
+  onMerge: (from: string[], into: string) => Promise<void>
+}) {
+  const [picked, setPicked] = useState<string[]>([])
+  const [keep, setKeep] = useState('')
+  const { run, busy, error } = useAction()
+  // the kept name is one of the picked speakers; the first picked until someone chooses
+  const into = picked.includes(keep) ? keep : (picked[0] ?? '')
+  const toggle = (name: string, on: boolean): void => setPicked(on ? [...picked, name] : picked.filter((p) => p !== name))
+  return (
+    <Dialog
+      title="Merge speakers"
+      description="Speaker labels sometimes split one person into several. Pick the speakers who are the same person; their lines all take the name you keep. Re-analyze afterwards so changes are attributed to the right person."
+      onClose={props.onClose}
+      dismissible={!busy}
+      footer={
+        <>
+          <Button onClick={props.onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            loading={busy}
+            disabled={picked.length < 2}
+            onClick={() =>
+              void run(() =>
+                props.onMerge(
+                  picked.filter((p) => p !== into),
+                  into
+                )
+              )
+            }
+          >
+            {picked.length < 2 ? 'Merge speakers' : `Merge ${picked.length} speakers`}
+          </Button>
+        </>
+      }
+    >
+      <Field label="Keep the name" hint="The merged speakers all take this name.">
+        <Select value={picked.length < 2 ? '' : into} disabled={picked.length < 2} onChange={(e) => setKeep(e.target.value)}>
+          {picked.length < 2 ? (
+            <option value="">Pick two or more speakers below</option>
+          ) : (
+            picked.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))
+          )}
+        </Select>
+      </Field>
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-2 text-body-strong">Same person</legend>
+        {props.speakers.map((s) => (
+          <Checkbox
+            key={s.name}
+            checked={picked.includes(s.name)}
+            onChange={(e) => toggle(s.name, e.target.checked)}
+            label={
+              <span className="flex items-center gap-2">
+                <SpeakerAvatar name={s.name} selfName={props.selfName} />
+                {s.name}
+                <span className="text-fg-tertiary text-small">
+                  {s.lines} line{s.lines === 1 ? '' : 's'}
+                </span>
+              </span>
+            }
+            hint={`“${clip(s.sample)}”`}
+          />
+        ))}
+      </fieldset>
       {error && <Banner tone="danger">{error}</Banner>}
     </Dialog>
   )

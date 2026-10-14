@@ -135,3 +135,60 @@ describe('proposal edits', () => {
     expect(db.getProposal(p.id)?.title).toBe('Use Postgres')
   })
 })
+
+describe('relabelling speakers', () => {
+  const meeting = (status: 'ready' | 'analyzed' | 'transcribing' | 'analyzing' = 'analyzed') => {
+    const p = db.createProject('Speakers', '')
+    const m = db.createMeeting(p.id, 'M', status)
+    const line = (speaker: string, text: string, t: number) => ({ speaker, text, tStart: t, tEnd: t + 2, source: 'system' as const })
+    db.addSegments(m.id, [
+      line('Speaker 1', 'We ship Friday.', 0),
+      line('Speaker 2', 'Agreed.', 3),
+      line('Speaker 3', 'I will test it.', 6)
+    ])
+    db.saveReport(m.id, 'mock', 'summary', 0, [
+      {
+        category: 'action_item',
+        op: 'create',
+        targetItemId: null,
+        targetVersion: null,
+        itemType: 'task',
+        title: 'Test the release',
+        body: '',
+        owner: 'Speaker 3',
+        dueDate: '',
+        speaker: 'Speaker 3',
+        strength: 'firm',
+        confidence: 0.9,
+        impact: 'medium',
+        rationale: '',
+        evidence: [{ segmentId: 's3', quote: 'I will test it', speaker: 'Speaker 3', t: 6 }]
+      }
+    ])
+    return m.id
+  }
+  const speakers = (id: string) => db.listSegments(id).map((s) => s.speaker)
+
+  it('merges voices, and the report follows: speaker, owner and evidence', () => {
+    const id = meeting()
+    api.relabelSpeakers(id, { 'Speaker 3': 'Speaker 1' })
+    expect(speakers(id)).toEqual(['Speaker 1', 'Speaker 2', 'Speaker 1'])
+    const [p] = db.getReport(id)!.proposals
+    expect(p).toMatchObject({ speaker: 'Speaker 1', owner: 'Speaker 1' })
+    expect(p.evidence[0].speaker).toBe('Speaker 1')
+  })
+
+  it('applies every rename at once, so two names can swap', () => {
+    const id = meeting()
+    api.relabelSpeakers(id, { 'Speaker 1': 'Speaker 2', 'Speaker 2': 'Speaker 1', 'Speaker 3': ' Priya ' })
+    expect(speakers(id)).toEqual(['Speaker 2', 'Speaker 1', 'Priya'])
+  })
+
+  it('ignores empty names, and refuses while the transcript is being written or analyzed', () => {
+    const id = meeting()
+    api.relabelSpeakers(id, { 'Speaker 1': '  ' })
+    expect(speakers(id)[0]).toBe('Speaker 1')
+    expect(() => api.relabelSpeakers(meeting('transcribing'), { 'Speaker 1': 'A' })).toThrow('Wait until the meeting is transcribed.')
+    expect(() => api.relabelSpeakers(meeting('analyzing'), { 'Speaker 1': 'A' })).toThrow('An analysis is running')
+  })
+})

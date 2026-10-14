@@ -1,6 +1,6 @@
 import { HINGLISH_NEEDS_CLOUD } from '@shared/sttRouting'
 import type { CloudSttProvider, Settings, SttLanguage, SttProvider } from '@shared/types'
-import { Badge, Banner, Field, Input, RadioCardGroup, SecretInput, Select } from '../../components/ui'
+import { Badge, Banner, Field, Input, RadioCardGroup, SecretInput, Select, Switch } from '../../components/ui'
 import { LocalModelCard } from './LocalModelCard'
 import { CLOUD_STT_LABELS, STT_LANGUAGES, STT_PROVIDERS, sttKeyTarget } from './providers'
 import { SettingsSection } from './SettingsSection'
@@ -51,6 +51,14 @@ export function TranscriptionSection({
       />
 
       {local && <LocalModelCard />}
+      {local && (
+        <Switch
+          checked={value.localSpeakerLabels}
+          onChange={(on) => onChange({ localSpeakerLabels: on })}
+          label="Label the other participants’ voices"
+          hint="After a meeting, tells voices apart as Speaker 1, Speaker 2… so you can name or merge them on the meeting page. It takes about as long again as the transcription. Your microphone is always you."
+        />
+      )}
 
       {p !== 'none' && (
         <div className="grid regular:grid-cols-2 gap-4">

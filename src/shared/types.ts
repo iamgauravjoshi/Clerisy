@@ -183,6 +183,8 @@ export interface Settings {
   sttLanguage: SttLanguage
   /** with the local provider: the cloud provider for meetings in Hindi or Hinglish ('none' = don't transcribe them) */
   sttCloudFallback: CloudSttProvider | 'none'
+  /** with the local provider: label the other participants' voices as Speaker 1, 2… after the meeting */
+  localSpeakerLabels: boolean
   autoDetect: boolean
   hotkeyRecord: string
   hotkeyMark: string
@@ -233,7 +235,12 @@ export interface LocalModelStatus {
   label: string
   /** download size of everything it needs */
   bytes: number
+  /** what's left to download (files missing or unfinished) */
+  remainingBytes: number
+  /** the transcription model is there */
   installed: boolean
+  /** the speaker-label models are there too (they came after the first release of the download) */
+  speakerLabels: boolean
   download:
     | { state: 'idle' }
     | { state: 'downloading' | 'verifying'; received: number; total: number }
@@ -248,6 +255,7 @@ export type StreamProgress =
   | { stage: 'waiting' }
   | { stage: 'decoding' }
   | { stage: 'transcribing'; done: number; total: number }
+  | { stage: 'speakers' }
   | { stage: 'sending'; provider: CloudSttProvider }
   | { stage: 'done' }
   | { stage: 'failed' }

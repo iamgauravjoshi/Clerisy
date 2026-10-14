@@ -269,7 +269,14 @@ export const api = {
   renameMeeting: (id: string, title: string) => db.updateMeeting(id, { title }),
   deleteMeeting: (id: string) => deleteMeeting(id),
   getTranscript: (id: string) => ({ segments: db.listSegments(id), marks: db.listMarks(id) }),
-  renameSpeaker: (meetingId: string, from: string, to: string) => db.renameSpeaker(meetingId, from, to),
+  /** Renames and merges speakers in one go (Map speakers, Merge speakers): { from: to }, applied all at once. */
+  relabelSpeakers: (meetingId: string, map: Record<string, string>): void => {
+    const status = db.getMeeting(meetingId)?.status
+    // a transcription would replace the lines, and an analysis would save its proposals with the old names
+    if (status === 'recording' || status === 'transcribing') throw new Error('Wait until the meeting is transcribed.')
+    if (status === 'analyzing') throw new Error('An analysis is running for this meeting. Try again after it finishes.')
+    db.relabelSpeakers(meetingId, map)
+  },
 
   /** Creates a meeting from pasted or uploaded transcript text. */
   importTranscript: (projectId: string, title: string, text: string) => {

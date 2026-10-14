@@ -14,13 +14,18 @@ port.on('message', (e: { data: TranscribeRequest }) => {
   if (req?.type !== 'transcribe') return
   try {
     let last = 0
-    const { lines, stats } = transcriber.transcribe(req.model, req.samples, (done, total) => {
-      // at most every 5 % or so, so progress doesn't flood main
-      if (done === total || done - last >= Math.max(1, Math.floor(total / 20))) {
-        last = done
-        send({ type: 'progress', id: req.id, done, total })
-      }
-    })
+    const { lines, stats } = transcriber.transcribe(
+      req.model,
+      req.samples,
+      (done, total) => {
+        // at most every 5 % or so, so progress doesn't flood main
+        if (done === total || done - last >= Math.max(1, Math.floor(total / 20))) {
+          last = done
+          send({ type: 'progress', id: req.id, done, total })
+        }
+      },
+      { speakers: req.speakers, onSpeakers: () => send({ type: 'speakers', id: req.id }) }
+    )
     send({ type: 'result', id: req.id, lines, stats })
   } catch (err) {
     send({ type: 'error', id: req.id, message: err instanceof Error ? err.message : String(err) })

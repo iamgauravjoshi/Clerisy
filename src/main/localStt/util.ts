@@ -5,12 +5,12 @@ import type { LocalLine } from './core'
 // Pure helpers for local transcription, kept apart from the Electron glue in index.ts so they can be tested on their own.
 
 /**
- * The transcript lines as segments: the mic is always the local user; without diarization (step 6d) everyone
- * on the system stream is "Others", like the Whisper providers.
+ * The transcript lines as segments: the mic is always the local user. On the system stream, labelled lines become
+ * "Speaker 1", "Speaker 2"… like Deepgram's; without labels (live chunks, or no speaker models) everyone is "Others".
  */
 export function toRawSegments(lines: LocalLine[], source: SegmentSource, offsetSec: number, selfName: string): RawSegment[] {
   return lines.map((l) => ({
-    speaker: source === 'mic' ? selfName || 'Me' : 'Others',
+    speaker: source === 'mic' ? selfName || 'Me' : l.speaker ? `Speaker ${l.speaker}` : 'Others',
     tStart: offsetSec + l.start,
     tEnd: offsetSec + l.end,
     text: l.text,

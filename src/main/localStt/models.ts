@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
-// Local speech-to-text models live in <userData>/models/<dir>. The download manager (step 6b) puts them there;
-// until then they can be copied in by hand from the sherpa-onnx releases (see spike/sherpa/FINDINGS.md).
+// Local speech-to-text models live in <userData>/models/<dir>, downloaded and checked by download.ts.
+// The speaker-label models (step 6d) are optional: without them, transcription works and the system stream is "Others".
 
 export type LocalModelId = 'parakeet-en'
 
@@ -65,9 +65,31 @@ const VAD_DOWNLOAD: ModelDownload = {
   bytes: 643_854
 }
 
-/** Everything to download for a model, VAD included. */
+/**
+ * Speaker labels for the system stream (diarization): pyannote segmentation 3.0 finds who speaks when, and
+ * 3D-Speaker CAM++ (English) tells voices apart. The spike's pair (FINDINGS.md §3), about 34 MB together.
+ */
+export const SPEAKER_FILES = { segmentation: 'speakers/pyannote-segmentation-3-0.onnx', embedding: 'speakers/3dspeaker-campplus-en.onnx' }
+
+const SPEAKER_DOWNLOADS: ModelDownload[] = [
+  {
+    path: SPEAKER_FILES.segmentation,
+    url: 'https://huggingface.co/csukuangfj/sherpa-onnx-pyannote-segmentation-3-0/resolve/9403a6902bb58e3d5ae8c7e77c3422de279db2e0/model.onnx',
+    sha256: '220ad67ca923bef2fa91f2390c786097bf305bceb5e261d4af67b38e938e1079',
+    bytes: 5_992_913
+  },
+  {
+    path: SPEAKER_FILES.embedding,
+    // "recongition" is the release's own spelling
+    url: 'https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_campplus_sv_en_voxceleb_16k.onnx',
+    sha256: '357a834f702b80161e5b981182c038e18553c1f2ca752ed6cec2052365d4129b',
+    bytes: 29_596_978
+  }
+]
+
+/** Everything to download for a model: VAD, the recognizer, and the speaker-label models. */
 export function modelDownloads(id: LocalModelId): ModelDownload[] {
-  return [VAD_DOWNLOAD, ...LOCAL_MODELS[id].downloads]
+  return [VAD_DOWNLOAD, ...LOCAL_MODELS[id].downloads, ...SPEAKER_DOWNLOADS]
 }
 
 /** Total download size of a model, in bytes. */
@@ -81,6 +103,8 @@ export interface ResolvedModel {
   joiner: string
   tokens: string
   vad: string
+  /** the speaker-label models, when they're installed */
+  speakers?: { segmentation: string; embedding: string }
 }
 
 /** Every file a model needs, relative to the models folder. */
@@ -94,7 +118,10 @@ export function missingModelFiles(root: string, id: LocalModelId): string[] {
   return modelFiles(id).filter((f) => !existsSync(join(root, f)))
 }
 
-/** The model's paths, or a clear error naming what's missing. */
+/** Whether the speaker-label models are installed. */
+export const hasSpeakerModels = (root: string): boolean => Object.values(SPEAKER_FILES).every((f) => existsSync(join(root, f)))
+
+/** The model's paths (with the speaker-label models if they're there), or a clear error naming what's missing. */
 export function resolveModel(root: string, id: LocalModelId): ResolvedModel {
   const missing = missingModelFiles(root, id)
   if (missing.length) throw new Error(`The ${LOCAL_MODELS[id].label} model isn't installed. Missing in ${root}: ${missing.join(', ')}`)
@@ -105,6 +132,9 @@ export function resolveModel(root: string, id: LocalModelId): ResolvedModel {
     decoder: join(root, dir, files.decoder),
     joiner: join(root, dir, files.joiner),
     tokens: join(root, dir, files.tokens),
-    vad: join(root, VAD_FILE)
+    vad: join(root, VAD_FILE),
+    ...(hasSpeakerModels(root) && {
+      speakers: { segmentation: join(root, SPEAKER_FILES.segmentation), embedding: join(root, SPEAKER_FILES.embedding) }
+    })
   }
 }

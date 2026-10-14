@@ -161,6 +161,10 @@ describe('meeting page', () => {
     act(() => emitMain('meeting:progress', 'm2', { mic: { stage: 'failed' } }))
     expect(screen.queryByText(/Failed/)).toBeNull()
     expect(screen.getByRole('progressbar', { name: 'Other participants' }).getAttribute('aria-valuenow')).toBe('1')
+    act(() => emitMain('meeting:progress', 'm1', { mic: { stage: 'done' }, system: { stage: 'speakers' } }))
+    expect(screen.getByText('Telling speakers apart…')).toBeTruthy()
+    // the speaker buttons wait for the transcript
+    expect(screen.queryByRole('button', { name: 'Merge speakers' })).toBeNull()
   })
 
   it('shows a live meeting as live, without analysis', async () => {
@@ -264,5 +268,90 @@ describe('pipeline position', () => {
     expect(position({ ...m, status: 'analyzed' }, [PROPOSAL], true)).toEqual({ current: 3, busy: false })
     expect(position({ ...m, status: 'analyzed' }, [{ ...PROPOSAL, status: 'accepted' }], true)).toEqual({ current: 4, busy: false })
     expect(position({ ...m, status: 'applied' }, [], true)).toEqual({ current: 5, busy: false })
+  })
+})
+
+describe('speakers', () => {
+  const said = (id: string, speaker: string, text: string, tStart: number) => ({
+    ...SEGMENT,
+    id,
+    idx: tStart,
+    speaker,
+    text,
+    tStart,
+    source: 'system' as const
+  })
+  const SEGMENTS = [
+    said('a', 'Speaker 1', 'Welcome everyone, first item is the release.', 0),
+    said('b', 'Speaker 2', 'Agreed.', 5),
+    said('c', 'Speaker 3', 'Moving on to the second agenda item now.', 9),
+    said('d', 'Speaker 1', 'Thanks.', 14)
+  ]
+  const withSpeakers = (handlers: Record<string, (...a: any[]) => unknown> = {}) =>
+    setup({ getTranscript: () => ({ segments: SEGMENTS, marks: [] }), relabelSpeakers: () => undefined, ...handlers })
+
+  it('merges speakers who are one person into the name kept, and says so', async () => {
+    const { invoke } = withSpeakers()
+    fireEvent.click(await screen.findByRole('button', { name: 'Merge speakers' }))
+    const dialog = topDialog()
+    // each speaker shows what it said, to recognise the voice
+    expect(within(dialog).getByText('“Moving on to the second agenda item now.”')).toBeTruthy()
+    const merge = within(dialog).getByRole('button', { name: 'Merge speakers' }) as HTMLButtonElement
+    expect(merge.disabled).toBe(true)
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Speaker 3/ }))
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Speaker 1/ }))
+    fireEvent.change(within(dialog).getByLabelText('Keep the name'), { target: { value: 'Speaker 1' } })
+    await act(async () => fireEvent.click(within(dialog).getByRole('button', { name: 'Merge 2 speakers' })))
+    expect(calls(invoke, 'relabelSpeakers')).toEqual([['m1', { 'Speaker 3': 'Speaker 1' }]])
+    expect(screen.getByText('Merged 2 speakers into Speaker 1')).toBeTruthy()
+    expect(screen.getByText(/Re-analyze so the changes are attributed/)).toBeTruthy()
+  })
+
+  it('keeps the dialog open with the reason when merging fails', async () => {
+    withSpeakers({ relabelSpeakers: fail('An analysis is running for this meeting. Try again after it finishes.') })
+    fireEvent.click(await screen.findByRole('button', { name: 'Merge speakers' }))
+    fireEvent.click(within(topDialog()).getByRole('checkbox', { name: /Speaker 2/ }))
+    fireEvent.click(within(topDialog()).getByRole('checkbox', { name: /Speaker 3/ }))
+    await act(async () => fireEvent.click(within(topDialog()).getByRole('button', { name: 'Merge 2 speakers' })))
+    expect(within(topDialog()).getByText(/An analysis is running/)).toBeTruthy()
+  })
+
+  it('saves Map speakers as one change, so names can swap', async () => {
+    const { invoke } = withSpeakers()
+    fireEvent.click(await screen.findByRole('button', { name: 'Map speakers' }))
+    fireEvent.change(within(topDialog()).getByLabelText('Name for Speaker 1'), { target: { value: 'Priya' } })
+    await act(async () => fireEvent.click(within(topDialog()).getByRole('button', { name: 'Save' })))
+    expect(calls(invoke, 'relabelSpeakers')).toEqual([['m1', { 'Speaker 1': 'Priya', 'Speaker 2': 'Speaker 2', 'Speaker 3': 'Speaker 3' }]])
+  })
+})
+
+describe('merging leaves your microphone out', () => {
+  it('offers only the other participants, and needs two of them', async () => {
+    const line = (id: string, speaker: string, source: 'mic' | 'system', tStart: number) => ({
+      ...SEGMENT,
+      id,
+      speaker,
+      source,
+      tStart,
+      text: `${speaker} said this.`
+    })
+    setup({
+      getTranscript: () => ({
+        segments: [line('a', 'Me', 'mic', 0), line('b', 'Speaker 1', 'system', 3), line('c', 'Speaker 11', 'system', 6)],
+        marks: []
+      })
+    })
+    fireEvent.click(await screen.findByRole('button', { name: 'Merge speakers' }))
+    const boxes = within(topDialog()).getAllByRole('checkbox')
+    expect(boxes).toHaveLength(2)
+    expect(within(topDialog()).queryByRole('checkbox', { name: /Me/ })).toBeNull()
+    // Speaker 11's avatar isn't Speaker 1's
+    expect(within(topDialog()).getByText('11')).toBeTruthy()
+  })
+
+  it('has nothing to merge with one other voice', async () => {
+    setup({ getTranscript: () => ({ segments: [{ ...SEGMENT, speaker: 'Speaker 1', source: 'system' }], marks: [] }) })
+    expect(await screen.findByRole('button', { name: 'Map speakers' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Merge speakers' })).toBeNull()
   })
 })

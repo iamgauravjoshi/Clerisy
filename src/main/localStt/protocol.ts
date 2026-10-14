@@ -9,9 +9,12 @@ export interface TranscribeRequest {
   id: number
   model: ResolvedModel
   samples: Float32Array
+  /** label the lines with voices (the system stream's final pass) */
+  speakers: boolean
 }
 
 export type WorkerMessage =
   | { type: 'progress'; id: number; done: number; total: number }
+  | { type: 'speakers'; id: number }
   | { type: 'result'; id: number; lines: LocalLine[]; stats: JobStats }
   | { type: 'error'; id: number; message: string }

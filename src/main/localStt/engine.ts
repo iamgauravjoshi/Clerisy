@@ -42,6 +42,9 @@ export interface JobOptions {
   /** the job left the queue and went to the worker */
   onStart?: () => void
   onProgress?: Progress
+  /** label the lines with voices; `onSpeakers` fires when that starts */
+  speakers?: boolean
+  onSpeakers?: () => void
   priority?: 'final' | 'live'
   liveKey?: string
 }
@@ -123,21 +126,19 @@ export class LocalSttEngine {
     const job = this.queue.shift() as Job
     this.current = job
     try {
-      this.ensureWorker().postMessage({ type: 'transcribe', id: job.id, model: job.model, samples: job.samples })
+      this.ensureWorker().postMessage({ type: 'transcribe', id: job.id, model: job.model, samples: job.samples, speakers: !!job.speakers })
     } catch (e) {
       this.finish(job.id, e instanceof Error ? e : new Error(String(e)))
       return
     }
     job.onStart?.()
-    const audioSeconds = job.samples.length / 16000
+    // speaker labels take about as long again as the transcription (spike: FINDINGS.md §4)
+    const limit = this.timeoutMs((job.samples.length / 16000) * (job.speakers ? 2 : 1))
     this.jobTimer = setTimeout(() => {
       // a stuck native call can't be interrupted: kill the worker; the next job starts a fresh one
       this.stopWorker()
-      this.finish(
-        job.id,
-        new Error(`Local transcription took longer than ${Math.round(this.timeoutMs(audioSeconds) / 1000)} s and was stopped.`)
-      )
-    }, this.timeoutMs(audioSeconds))
+      this.finish(job.id, new Error(`Local transcription took longer than ${Math.round(limit / 1000)} s and was stopped.`))
+    }, limit)
   }
 
   private ensureWorker(): WorkerHandle {
@@ -157,6 +158,7 @@ export class LocalSttEngine {
     const job = this.current
     if (!job || m.id !== job.id) return
     if (m.type === 'progress') job.onProgress?.(m.done, m.total)
+    else if (m.type === 'speakers') job.onSpeakers?.()
     else if (m.type === 'result') this.finish(job.id, null, { lines: m.lines, stats: m.stats })
     else this.finish(job.id, new Error(m.message))
   }

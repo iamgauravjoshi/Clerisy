@@ -1,11 +1,17 @@
 import type { Meeting, Proposal } from '@shared/types'
-import { AudioLines, Ellipsis, Pencil, RefreshCw, Share2, Sparkles, Trash2, Users } from 'lucide-react'
+import { AudioLines, Ellipsis, Merge, Pencil, RefreshCw, Share2, Sparkles, Trash2, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { api, errMsg } from '../api'
 import { MeetingStatusBadge } from '../components/domain'
 import { PageHeader } from '../components/layout'
-import { Badge, Banner, Button, buttonVariants, Icon, Menu, Skeleton, Tabs, Timestamp, useConfirm } from '../components/ui'
-import { EditProposalDialog, RenameMeetingDialog, SpeakerMapDialog } from '../features/meeting/dialogs'
+import { Badge, Banner, Button, buttonVariants, Icon, Menu, Skeleton, Tabs, Timestamp, useConfirm, useToast } from '../components/ui'
+import {
+  EditProposalDialog,
+  MergeSpeakersDialog,
+  RenameMeetingDialog,
+  SpeakerMapDialog,
+  summarizeSpeakers
+} from '../features/meeting/dialogs'
 import { ImpactReport, orderedProposals } from '../features/meeting/ImpactReport'
 import { PipelineStepper } from '../features/meeting/PipelineStepper'
 import { ShareReportDialog } from '../features/meeting/ShareReportDialog'
@@ -43,12 +49,16 @@ export function MeetingPage(props: {
   const [error, setError] = useState<string | null>(null)
   const [editing, setEditing] = useState<Proposal | null>(null)
   const [mapSpeakers, setMapSpeakers] = useState(false)
+  const [mergeSpeakers, setMergeSpeakers] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [skipped, setSkipped] = useState<{ proposalId: string; title: string; reason: string }[]>([])
   const confirm = useConfirm()
+  const toast = useToast()
 
   const speakers = useMemo(() => [...new Set(segments.map((s) => s.speaker))], [segments])
+  // the microphone is always you, so only the other participants' voices can need merging
+  const otherSpeakers = useMemo(() => summarizeSpeakers(segments.filter((s) => s.source !== 'mic')), [segments])
   const itemsById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
   const proposals = report?.proposals ?? []
   const ordered = useMemo(() => orderedProposals(report?.proposals ?? []), [report])
@@ -114,6 +124,8 @@ export function MeetingPage(props: {
   const analyzing = meeting.status === 'analyzing'
   // re-analysis would replace the report the project state was built from
   const applied = meeting.status === 'applied' || proposals.some((p) => p.status === 'applied')
+  // the transcript is still being written, or an analysis is reading it
+  const canRelabel = !props.live && meeting.status !== 'transcribing' && !analyzing
   const canAnalyze = segments.length > 0 && !props.live && meeting.status !== 'transcribing' && !analyzing && !applied
   const reviewed = proposals.filter((p) => p.status !== 'pending').length
   const source = meeting.sourceApp && meeting.sourceApp !== 'import' ? meeting.sourceApp : null
@@ -249,8 +261,13 @@ export function MeetingPage(props: {
         actions={
           <>
             {speakers.length > 0 && (
-              <Button icon={Users} onClick={() => setMapSpeakers(true)} disabled={!!busy}>
+              <Button icon={Users} onClick={() => setMapSpeakers(true)} disabled={!!busy || !canRelabel}>
                 Map speakers
+              </Button>
+            )}
+            {otherSpeakers.length > 1 && (
+              <Button icon={Merge} onClick={() => setMergeSpeakers(true)} disabled={!!busy || !canRelabel}>
+                Merge speakers
               </Button>
             )}
             {report && (
@@ -380,8 +397,25 @@ export function MeetingPage(props: {
           selfName={props.selfName}
           onClose={() => setMapSpeakers(false)}
           onSave={async (map) => {
-            for (const [from, to] of Object.entries(map)) if (to.trim() && to !== from) await api.renameSpeaker(meeting.id, from, to.trim())
+            await api.relabelSpeakers(meeting.id, map)
             setMapSpeakers(false)
+            await load()
+          }}
+        />
+      )}
+      {mergeSpeakers && (
+        <MergeSpeakersDialog
+          speakers={otherSpeakers}
+          selfName={props.selfName}
+          onClose={() => setMergeSpeakers(false)}
+          onMerge={async (from, into) => {
+            await api.relabelSpeakers(meeting.id, Object.fromEntries(from.map((f) => [f, into])))
+            setMergeSpeakers(false)
+            toast.show({
+              tone: 'success',
+              title: `Merged ${from.length + 1} speakers into ${into}`,
+              body: report ? 'Re-analyze so the changes are attributed to the right person.' : undefined
+            })
             await load()
           }}
         />

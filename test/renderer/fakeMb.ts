@@ -50,6 +50,7 @@ export const SETTINGS: Settings = {
   sttModel: '',
   sttLanguage: 'en',
   sttCloudFallback: 'none',
+  localSpeakerLabels: true,
   autoDetect: false,
   hotkeyRecord: 'CommandOrControl+Shift+M',
   hotkeyMark: 'CommandOrControl+Shift+D',

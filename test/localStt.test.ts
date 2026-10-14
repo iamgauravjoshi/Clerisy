@@ -3,9 +3,19 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { threadCount } from '../src/main/localStt/core'
+import { DIARIZATION_CONFIG, LocalTranscriber, labelSpeakers, type Sherpa, threadCount } from '../src/main/localStt/core'
 import { DroppedJobError, IDLE_MS, jobTimeout, LocalSttEngine, type WorkerHandle } from '../src/main/localStt/engine'
-import { LOCAL_MODELS, missingModelFiles, modelFiles, resolveModel, VAD_FILE } from '../src/main/localStt/models'
+import {
+  hasSpeakerModels,
+  LOCAL_MODELS,
+  missingModelFiles,
+  modelBytes,
+  modelDownloads,
+  modelFiles,
+  resolveModel,
+  SPEAKER_FILES,
+  VAD_FILE
+} from '../src/main/localStt/models'
 import type { TranscribeRequest, WorkerMessage } from '../src/main/localStt/protocol'
 import { testWav, toRawSegments } from '../src/main/localStt/util'
 
@@ -25,6 +35,95 @@ describe('local models', () => {
     for (const f of modelFiles('parakeet-en')) writeFileSync(join(root, f), '')
     expect(missingModelFiles(root, 'parakeet-en')).toEqual([])
     expect(resolveModel(root, 'parakeet-en')).toMatchObject({ id: 'parakeet-en', vad: join(root, VAD_FILE) })
+  })
+
+  it('treats the speaker-label models as optional: transcription resolves without them, and picks them up once there', () => {
+    // the files from the test above are in place
+    expect(hasSpeakerModels(root)).toBe(false)
+    expect(resolveModel(root, 'parakeet-en').speakers).toBeUndefined()
+    mkdirSync(join(root, 'speakers'), { recursive: true })
+    for (const f of Object.values(SPEAKER_FILES)) writeFileSync(join(root, f), '')
+    expect(resolveModel(root, 'parakeet-en').speakers).toEqual({
+      segmentation: join(root, SPEAKER_FILES.segmentation),
+      embedding: join(root, SPEAKER_FILES.embedding)
+    })
+    // still not part of what "installed" means, so a model downloaded before speaker labels keeps working
+    expect(missingModelFiles(root, 'parakeet-en')).toEqual([])
+  })
+
+  it('downloads the speaker-label models with the rest, pinned and checked', () => {
+    const speakers = modelDownloads('parakeet-en').filter((f) => f.path.startsWith('speakers/'))
+    expect(speakers.map((f) => f.path)).toEqual(Object.values(SPEAKER_FILES))
+    for (const f of speakers) expect(f.sha256).toMatch(/^[0-9a-f]{64}$/)
+    expect(speakers.reduce((n, f) => n + f.bytes, 0)).toBe(35_589_891)
+    expect(modelBytes('parakeet-en')).toBe(661_834_367 + 35_589_891)
+  })
+})
+
+describe('speaker labels', () => {
+  const line = (start: number, end: number, text = 'x') => ({ start, end, text })
+
+  it('gives each line the voice that talks most during it, numbered in order of first appearance', () => {
+    const turns = [
+      { start: 0, end: 4, speaker: 7 },
+      { start: 4, end: 5, speaker: 2 },
+      { start: 5, end: 12, speaker: 2 },
+      { start: 12, end: 20, speaker: 7 }
+    ]
+    const labelled = labelSpeakers([line(0, 3), line(3.5, 10), line(13, 19)], turns)
+    expect(labelled.map((l) => l.speaker)).toEqual([1, 2, 1])
+  })
+
+  it('gives a line no turn covers the nearest voice, and leaves lines alone when diarization found nobody', () => {
+    const turns = [
+      { start: 0, end: 2, speaker: 0 },
+      { start: 10, end: 12, speaker: 1 }
+    ]
+    expect(labelSpeakers([line(0, 1), line(8, 9)], turns).map((l) => l.speaker)).toEqual([1, 2])
+    expect(labelSpeakers([line(0, 1)], [])).toEqual([line(0, 1)])
+  })
+
+  it('names labelled system lines Speaker 1, 2…, and never relabels the microphone', () => {
+    const lines = [{ start: 0, end: 1, text: 'Hi.', speaker: 2 }]
+    expect(toRawSegments(lines, 'system', 0, 'Me')[0].speaker).toBe('Speaker 2')
+    expect(toRawSegments(lines, 'mic', 0, 'Gaurav')[0].speaker).toBe('Gaurav')
+  })
+
+  it('runs diarization only when asked and the models are there, after transcribing, with the spike’s threshold', () => {
+    const configs: unknown[] = []
+    const process = vi.fn(() => [{ start: 0, end: 2, speaker: 5 }])
+    const sherpa = {
+      OfflineRecognizer: class {
+        createStream = () => ({ acceptWaveform: () => {} })
+        decode = () => {}
+        getResult = () => ({ text: 'Ship it on Friday.' })
+      },
+      Vad: class {},
+      OfflineSpeakerDiarization: class {
+        constructor(config: unknown) {
+          configs.push(config)
+        }
+        process = process
+      }
+    } as unknown as Sherpa
+    const t = new LocalTranscriber(sherpa, 2)
+    vi.spyOn(t, 'speechSegments').mockReturnValue([{ start: 0, samples: new Float32Array(16000) }])
+    const base = { id: 'parakeet-en' as const, encoder: 'e', decoder: 'd', joiner: 'j', tokens: 't', vad: 'v' }
+    const model = { ...base, speakers: { segmentation: 's', embedding: 'm' } }
+    const audio = new Float32Array(32000)
+
+    expect(t.transcribe(model, audio).lines[0].speaker).toBeUndefined()
+    expect(t.transcribe(base, audio, undefined, { speakers: true }).lines[0].speaker).toBeUndefined()
+    expect(process).not.toHaveBeenCalled()
+
+    const order: string[] = []
+    const r = t.transcribe(model, audio, () => order.push('progress'), { speakers: true, onSpeakers: () => order.push('speakers') })
+    expect(r.lines).toEqual([{ start: 0, end: 1, text: 'Ship it on Friday.', speaker: 1 }])
+    expect(r.stats.speakers).toBe(1)
+    expect(order).toEqual(['progress', 'speakers'])
+    expect(process).toHaveBeenCalledWith(audio)
+    expect(configs[0]).toMatchObject({ clustering: { numClusters: -1, threshold: DIARIZATION_CONFIG.threshold } })
+    expect(DIARIZATION_CONFIG.threshold).toBe(0.9)
   })
 })
 
@@ -213,6 +312,21 @@ describe('local transcription engine', () => {
       await chunk
       expect(w.requests.map((r) => r.id)).toEqual([1, 2, 3])
     })
+  })
+
+  it('asks the worker for speaker labels, reports when they start, and allows twice the time for them', async () => {
+    const e = engine({ timeoutMs: (s: number) => s * 1000 })
+    const onSpeakers = vi.fn()
+    const job = e.transcribe(MODEL, seconds(2), { speakers: true, onSpeakers })
+    expect(workers[0].requests[0].speakers).toBe(true)
+    workers[0].reply({ type: 'speakers', id: 1 })
+    expect(onSpeakers).toHaveBeenCalledOnce()
+    const failed = expect(job).rejects.toThrow('longer than 4 s')
+    await vi.advanceTimersByTimeAsync(4000)
+    await failed
+    // without the option, no labels (the worker restarted after the timeout)
+    void e.transcribe(MODEL, seconds(1))
+    expect(workers[1].requests[0].speakers).toBe(false)
   })
 
   it('fails every job and stops the worker when disposed', async () => {
