@@ -82,10 +82,23 @@ afterEach(() => {
 })
 
 describe('starting a recording', () => {
+  it('passes on how many other people are in the meeting, and refuses a count that makes no sense', async () => {
+    const invoke = setup()
+    const dialog = await openStartDialog()
+    const people = within(dialog).getByLabelText(/Other people in the meeting/)
+    const start = within(dialog).getByRole('button', { name: /start recording/i }) as HTMLButtonElement
+    fireEvent.change(people, { target: { value: '0' } })
+    expect(start.disabled).toBe(true)
+    expect(within(dialog).getByText(/Enter a number from 1 to 30/)).toBeTruthy()
+    fireEvent.change(people, { target: { value: '3' } })
+    await act(async () => fireEvent.click(start))
+    expect(calls(invoke, 'startRecording')[0][3]).toBe(3)
+  })
+
   it('creates the meeting, starts capture, tells main and opens the meeting page', async () => {
     const invoke = setup()
     await startRecording()
-    expect(calls(invoke, 'startRecording')).toEqual([['p1', expect.stringMatching(/^Meeting · /), '']])
+    expect(calls(invoke, 'startRecording')).toEqual([['p1', expect.stringMatching(/^Meeting · /), '', null]])
     expect(rec.created[0]?.[0]).toBe('m2')
     expect(rec.start).toHaveBeenCalledTimes(1)
     expect(recordingStates()).toEqual([expect.objectContaining({ active: true, meetingId: 'm2', projectId: 'p1' })])

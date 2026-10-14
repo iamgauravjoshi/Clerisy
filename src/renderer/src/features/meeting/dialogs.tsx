@@ -1,6 +1,7 @@
-import { ITEM_TYPES, type Proposal, type Stakeholder } from '@shared/types'
-import { ArrowRight } from 'lucide-react'
-import { useId, useState } from 'react'
+import { ITEM_TYPES, MAX_EXPECTED_SPEAKERS, type Proposal, type Stakeholder } from '@shared/types'
+import { ArrowRight, AudioLines } from 'lucide-react'
+import { useEffect, useId, useState } from 'react'
+import { api } from '../../api'
 import { SpeakerAvatar } from '../../components/domain'
 import { Banner, Button, Checkbox, Dialog, Field, Icon, Input, Select, Textarea } from '../../components/ui'
 import { useAction } from '../../hooks/useAction'
@@ -210,6 +211,81 @@ export function MergeSpeakersDialog(props: {
         ))}
       </fieldset>
       {error && <Banner tone="danger">{error}</Banner>}
+    </Dialog>
+  )
+}
+
+/**
+ * Detect speakers again: how many other people were in the meeting, so local speaker labels split the recording into
+ * exactly that many voices. Needs the speaker-label models; replaces names given with Map speakers.
+ */
+export function DetectSpeakersDialog(props: {
+  /** a starting guess: the count given before, or how many voices there are now */
+  initialCount: number | null
+  hasReport: boolean
+  onClose: () => void
+  onDetect: (expectedSpeakers: number | null) => void
+}) {
+  const [people, setPeople] = useState(props.initialCount ? String(props.initialCount) : '')
+  const [unsure, setUnsure] = useState(false)
+  const [modelsReady, setModelsReady] = useState<boolean | null>(null)
+  useEffect(() => {
+    let live = true
+    api
+      .getLocalModelStatus()
+      .then((s) => live && setModelsReady(s.speakerLabels))
+      .catch(() => live && setModelsReady(false))
+    return () => {
+      live = false
+    }
+  }, [])
+  const count = Number(people)
+  const valid = unsure || (Number.isInteger(count) && count >= 1 && count <= MAX_EXPECTED_SPEAKERS)
+  return (
+    <Dialog
+      title="Detect speakers again"
+      description="Tell MeetingBuddy how many other people spoke, and it matches their voices again on the saved recording, without transcribing it again."
+      onClose={props.onClose}
+      footer={
+        <>
+          <Button onClick={props.onClose}>Cancel</Button>
+          <Button
+            variant="primary"
+            icon={AudioLines}
+            disabled={!valid || !modelsReady}
+            onClick={() => props.onDetect(unsure ? null : count)}
+          >
+            Detect speakers
+          </Button>
+        </>
+      }
+    >
+      <Field
+        label="Other people in the meeting"
+        hint="Not counting you: your microphone is always you."
+        error={valid ? undefined : `Enter a number from 1 to ${MAX_EXPECTED_SPEAKERS}.`}
+      >
+        <Input
+          type="number"
+          min={1}
+          max={MAX_EXPECTED_SPEAKERS}
+          inputMode="numeric"
+          value={unsure ? '' : people}
+          disabled={unsure}
+          onChange={(e) => setPeople(e.target.value)}
+          className="w-32"
+          data-autofocus
+        />
+      </Field>
+      <Checkbox checked={unsure} onChange={(e) => setUnsure(e.target.checked)} label="I'm not sure: let MeetingBuddy decide" />
+      <Banner tone="warning">
+        The other participants' lines get new labels (Speaker 1, Speaker 2…), replacing names given with Map speakers.
+        {props.hasReport ? ' Re-analyze afterwards so changes are attributed to the right person.' : ''} It takes a few minutes for a long
+        meeting.
+      </Banner>
+      {modelsReady === false && (
+        <Banner tone="danger">This needs the speaker-label models. Download them in Settings › Transcription (Local).</Banner>
+      )}
     </Dialog>
   )
 }

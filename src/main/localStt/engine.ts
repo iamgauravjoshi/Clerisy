@@ -45,6 +45,10 @@ export interface JobOptions {
   /** label the lines with voices; `onSpeakers` fires when that starts */
   speakers?: boolean
   onSpeakers?: () => void
+  /** how many voices to find, when the user said */
+  numSpeakers?: number
+  /** label these lines of the audio instead of transcribing it */
+  relabel?: LocalLine[]
   priority?: 'final' | 'live'
   liveKey?: string
 }
@@ -126,14 +130,22 @@ export class LocalSttEngine {
     const job = this.queue.shift() as Job
     this.current = job
     try {
-      this.ensureWorker().postMessage({ type: 'transcribe', id: job.id, model: job.model, samples: job.samples, speakers: !!job.speakers })
+      this.ensureWorker().postMessage({
+        type: 'transcribe',
+        id: job.id,
+        model: job.model,
+        samples: job.samples,
+        speakers: !!job.speakers,
+        numSpeakers: job.numSpeakers,
+        relabel: job.relabel
+      })
     } catch (e) {
       this.finish(job.id, e instanceof Error ? e : new Error(String(e)))
       return
     }
     job.onStart?.()
     // speaker labels take about as long again as the transcription (spike: FINDINGS.md §4)
-    const limit = this.timeoutMs((job.samples.length / 16000) * (job.speakers ? 2 : 1))
+    const limit = this.timeoutMs((job.samples.length / 16000) * (job.relabel ? 1 : job.speakers ? 2 : 1))
     this.jobTimer = setTimeout(() => {
       // a stuck native call can't be interrupted: kill the worker; the next job starts a fresh one
       this.stopWorker()

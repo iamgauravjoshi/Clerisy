@@ -43,6 +43,8 @@ export interface TranscribeOptions {
   /** a live preview chunk of this stream (e.g. `<meetingId>:mic`); local transcription may skip it for a newer one */
   liveKey?: string
   onProgress?: (p: StreamProgress) => void
+  /** how many people besides the user, when they said: local speaker labels find exactly that many voices */
+  expectedSpeakers?: number | null
 }
 
 /**
@@ -56,7 +58,7 @@ export async function transcribe(
   source: SegmentSource,
   offsetSec: number,
   timeoutMs: number,
-  { liveKey, onProgress }: TranscribeOptions = {}
+  { liveKey, onProgress, expectedSpeakers }: TranscribeOptions = {}
 ): Promise<RawSegment[]> {
   const route = routeStt(s)
   if (route.provider === 'none') return []
@@ -67,7 +69,12 @@ export async function transcribe(
     const bytes = new Uint8Array(audio.buffer, audio.byteOffset, audio.byteLength)
     // speaker labels need the whole recording: the system stream's final pass (or an import), never a live chunk
     const speakers = s.localSpeakerLabels && source === 'system' && !liveKey
-    return transcribeLocal(bytes, source, offsetSec, s.selfName, { liveKey, onProgress, speakers })
+    return transcribeLocal(bytes, source, offsetSec, s.selfName, {
+      liveKey,
+      onProgress,
+      speakers,
+      numSpeakers: expectedSpeakers ?? undefined
+    })
   }
   checkUploadSize(route.provider, audio.byteLength)
   onProgress?.({ stage: 'sending', provider: route.provider })

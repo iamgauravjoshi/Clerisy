@@ -355,3 +355,41 @@ describe('merging leaves your microphone out', () => {
     expect(screen.queryByRole('button', { name: 'Merge speakers' })).toBeNull()
   })
 })
+
+describe('detect speakers again', () => {
+  const MODEL = { label: 'Parakeet', bytes: 1, remainingBytes: 0, installed: true, speakerLabels: true, download: { state: 'idle' } }
+  const openDialog = async () => {
+    fireEvent.click(await screen.findByRole('button', { name: 'More actions' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Detect speakers again…' }))
+    return topDialog()
+  }
+
+  it('re-detects with the number of people given, and says how many it found', async () => {
+    const { invoke } = setup({ hasRecording: () => true, getLocalModelStatus: () => MODEL, detectSpeakers: () => ({ speakers: 3 }) })
+    const dialog = await openDialog()
+    const count = within(dialog).getByLabelText(/Other people in the meeting/)
+    fireEvent.change(count, { target: { value: '3' } })
+    const detect = within(dialog).getByRole('button', { name: 'Detect speakers' }) as HTMLButtonElement
+    await vi.waitFor(() => expect(detect.disabled).toBe(false))
+    await act(async () => fireEvent.click(detect))
+    expect(calls(invoke, 'detectSpeakers')).toEqual([['m1', 3]])
+    expect(await screen.findByText('Found 3 speakers')).toBeTruthy()
+  })
+
+  it('lets MeetingBuddy decide when you are not sure', async () => {
+    const { invoke } = setup({ hasRecording: () => true, getLocalModelStatus: () => MODEL, detectSpeakers: () => ({ speakers: 5 }) })
+    const dialog = await openDialog()
+    fireEvent.click(within(dialog).getByRole('checkbox', { name: /I'm not sure/ }))
+    const detect = within(dialog).getByRole('button', { name: 'Detect speakers' }) as HTMLButtonElement
+    await vi.waitFor(() => expect(detect.disabled).toBe(false))
+    await act(async () => fireEvent.click(detect))
+    expect(calls(invoke, 'detectSpeakers')).toEqual([['m1', null]])
+  })
+
+  it('needs the speaker-label models first', async () => {
+    setup({ hasRecording: () => true, getLocalModelStatus: () => ({ ...MODEL, speakerLabels: false }) })
+    const dialog = await openDialog()
+    expect(await within(dialog).findByText(/needs the speaker-label models/)).toBeTruthy()
+    expect((within(dialog).getByRole('button', { name: 'Detect speakers' }) as HTMLButtonElement).disabled).toBe(true)
+  })
+})

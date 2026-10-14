@@ -61,7 +61,12 @@ export interface Sherpa {
     pop(): void
     flush(): void
   }
-  OfflineSpeakerDiarization: new (config: unknown) => { process(samples: Float32Array): SpeakerTurn[] }
+  OfflineSpeakerDiarization: new (
+    config: unknown
+  ) => {
+    process(samples: Float32Array): SpeakerTurn[]
+    setConfig(config: { clustering: { numClusters: number; threshold: number } }): void
+  }
 }
 
 type Recognizer = InstanceType<Sherpa['OfflineRecognizer']>
@@ -151,8 +156,11 @@ export class LocalTranscriber {
     return segments
   }
 
-  /** Who speaks when, over the whole audio (diarization has to see all of it to tell voices apart). */
-  speakerTurns(model: ResolvedModel, samples: Float32Array): SpeakerTurn[] {
+  /**
+   * Who speaks when, over the whole audio (diarization has to see all of it to tell voices apart). With
+   * `numSpeakers` it splits into exactly that many voices; otherwise it clusters by distance (DIARIZATION_CONFIG).
+   */
+  speakerTurns(model: ResolvedModel, samples: Float32Array, numSpeakers?: number): SpeakerTurn[] {
     if (!model.speakers) throw new Error("The speaker-label models aren't installed.")
     let diarizer = this.diarizers.get(model.speakers.embedding)
     if (!diarizer) {
@@ -166,19 +174,47 @@ export class LocalTranscriber {
       })
       this.diarizers.set(model.speakers.embedding, diarizer)
     }
+    // the cached diarizer keeps its last clustering, so set it for every job
+    diarizer.setConfig({
+      clustering: { numClusters: numSpeakers && numSpeakers > 0 ? numSpeakers : -1, threshold: DIARIZATION_CONFIG.threshold }
+    })
     return diarizer.process(samples)
   }
 
   /**
    * `speakers` labels the lines with voices; `onSpeakers` fires when that starts (it reports no progress of its own).
+   * `numSpeakers` is how many voices to find, when the user knows. `relabel` skips transcription: it labels these
+   * existing lines of the audio instead (Detect speakers again).
    */
   transcribe(
     model: ResolvedModel,
     samples: Float32Array,
     onProgress?: (done: number, total: number) => void,
-    { speakers = false, onSpeakers }: { speakers?: boolean; onSpeakers?: () => void } = {}
+    {
+      speakers = false,
+      onSpeakers,
+      numSpeakers,
+      relabel
+    }: { speakers?: boolean; onSpeakers?: () => void; numSpeakers?: number; relabel?: LocalLine[] } = {}
   ): { lines: LocalLine[]; stats: JobStats } {
     const t0 = performance.now()
+    if (relabel) {
+      onSpeakers?.()
+      const labelled = labelSpeakers(relabel, this.speakerTurns(model, samples, numSpeakers))
+      const seconds = (performance.now() - t0) / 1000
+      return {
+        lines: labelled,
+        stats: {
+          audioSeconds: samples.length / SAMPLE_RATE,
+          speechSeconds: 0,
+          segments: relabel.length,
+          loadSeconds: 0,
+          seconds,
+          speakers: new Set(labelled.map((l) => l.speaker)).size,
+          speakerSeconds: seconds
+        }
+      }
+    }
     const { recognizer, loadSeconds } = this.recognizer(model)
     const segments = this.speechSegments(model, samples)
     const lines: LocalLine[] = []
@@ -195,7 +231,7 @@ export class LocalTranscriber {
     if (speakers && model.speakers && lines.length) {
       onSpeakers?.()
       const t1 = performance.now()
-      labelled = labelSpeakers(lines, this.speakerTurns(model, samples))
+      labelled = labelSpeakers(lines, this.speakerTurns(model, samples, numSpeakers))
       speakerStats = { speakers: new Set(labelled.map((l) => l.speaker)).size, speakerSeconds: (performance.now() - t1) / 1000 }
     }
     return {

@@ -64,9 +64,9 @@ export function useRecordingController({
   }, [])
 
   /** Creates the meeting and starts capture. Throws (after deleting the new meeting) if capture can't start. */
-  const start = useCallback(async (projectId: string, title: string, sourceApp: string) => {
+  const start = useCallback(async (projectId: string, title: string, sourceApp: string, expectedSpeakers: number | null = null) => {
     const s = await api.getSettings()
-    const m = await api.startRecording(projectId, title, sourceApp)
+    const m = await api.startRecording(projectId, title, sourceApp, expectedSpeakers)
     const recorder = new MeetingRecorder(m.id, s.sttProvider === 'none' ? 0 : s.chunkSeconds, (message) =>
       cb.current.notify({ tone: 'danger', message })
     )

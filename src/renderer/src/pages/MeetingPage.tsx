@@ -6,6 +6,7 @@ import { MeetingStatusBadge } from '../components/domain'
 import { PageHeader } from '../components/layout'
 import { Badge, Banner, Button, buttonVariants, Icon, Menu, Skeleton, Tabs, Timestamp, useConfirm, useToast } from '../components/ui'
 import {
+  DetectSpeakersDialog,
   EditProposalDialog,
   MergeSpeakersDialog,
   RenameMeetingDialog,
@@ -52,6 +53,7 @@ export function MeetingPage(props: {
   const [editing, setEditing] = useState<Proposal | null>(null)
   const [mapSpeakers, setMapSpeakers] = useState(false)
   const [mergeSpeakers, setMergeSpeakers] = useState(false)
+  const [detectSpeakers, setDetectSpeakers] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [skipped, setSkipped] = useState<{ proposalId: string; title: string; reason: string }[]>([])
@@ -304,6 +306,12 @@ export function MeetingPage(props: {
                 ...(hasAudio
                   ? [
                       {
+                        label: 'Detect speakers again…',
+                        icon: Users,
+                        disabled: !canRelabel || !!busy,
+                        onSelect: () => setDetectSpeakers(true)
+                      },
+                      {
                         label: 'Delete recording…',
                         icon: AudioLines,
                         tone: 'danger' as const,
@@ -411,6 +419,24 @@ export function MeetingPage(props: {
             await api.relabelSpeakers(meeting.id, map)
             setMapSpeakers(false)
             await load()
+          }}
+        />
+      )}
+      {detectSpeakers && (
+        <DetectSpeakersDialog
+          initialCount={meeting.expectedSpeakers ?? (otherSpeakers.length || null)}
+          hasReport={!!report}
+          onClose={() => setDetectSpeakers(false)}
+          onDetect={(count) => {
+            setDetectSpeakers(false)
+            void run('Detecting speakers on the recording… this takes a few minutes for a long meeting.', async () => {
+              const { speakers } = await api.detectSpeakers(meeting.id, count)
+              toast.show({
+                tone: 'success',
+                title: `Found ${speakers} speaker${speakers === 1 ? '' : 's'}`,
+                body: report ? 'Re-analyze so the changes are attributed to the right person.' : undefined
+              })
+            })
           }}
         />
       )}

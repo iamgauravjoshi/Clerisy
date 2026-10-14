@@ -11,6 +11,10 @@ export interface TranscribeRequest {
   samples: Float32Array
   /** label the lines with voices (the system stream's final pass) */
   speakers: boolean
+  /** how many voices there are, when the user said */
+  numSpeakers?: number
+  /** label these lines instead of transcribing (Detect speakers again) */
+  relabel?: LocalLine[]
 }
 
 export type WorkerMessage =

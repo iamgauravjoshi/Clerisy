@@ -35,6 +35,8 @@ export interface LocalOptions {
   liveKey?: string
   /** label voices as Speaker 1, 2…, when the speaker-label models are installed */
   speakers?: boolean
+  /** how many voices to find, when the user said */
+  numSpeakers?: number
 }
 
 /**
@@ -46,7 +48,7 @@ export async function transcribeLocal(
   source: SegmentSource,
   offsetSec: number,
   selfName: string,
-  { modelId = 'parakeet-en', onProgress, liveKey, speakers = false }: LocalOptions = {}
+  { modelId = 'parakeet-en', onProgress, liveKey, speakers = false, numSpeakers }: LocalOptions = {}
 ): Promise<RawSegment[]> {
   const model = resolveModel(modelsRoot(), modelId)
   onProgress?.({ stage: 'decoding' })
@@ -57,6 +59,7 @@ export async function transcribeLocal(
       priority: liveKey ? 'live' : 'final',
       liveKey,
       speakers: speakers && !!model.speakers,
+      numSpeakers,
       onSpeakers: () => onProgress?.({ stage: 'speakers' }),
       onStart: () => onProgress?.({ stage: 'transcribing', done: 0, total: 0 }),
       onProgress: (done, total) => onProgress?.({ stage: 'transcribing', done, total })
@@ -66,6 +69,26 @@ export async function transcribeLocal(
     if (e instanceof DroppedJobError) return []
     throw e
   }
+}
+
+/**
+ * Labels existing transcript lines of a recording with voices, without transcribing again (Detect speakers again):
+ * returns "Speaker 1", "Speaker 2"… for each line, in order. Needs the speaker-label models.
+ */
+export async function relabelLocal(
+  audio: Uint8Array,
+  lines: { tStart: number; tEnd: number; text: string }[],
+  numSpeakers: number | null,
+  modelId: LocalModelId = 'parakeet-en'
+): Promise<string[]> {
+  const model = resolveModel(modelsRoot(), modelId)
+  if (!model.speakers) throw new Error('Download the speaker-label models first, in Settings › Transcription.')
+  const samples = await decodeAudio(audio)
+  const { lines: labelled } = await getEngine().transcribe(model, samples, {
+    relabel: lines.map((l) => ({ start: l.tStart, end: l.tEnd, text: l.text })),
+    numSpeakers: numSpeakers ?? undefined
+  })
+  return labelled.map((l) => (l.speaker ? `Speaker ${l.speaker}` : 'Others'))
 }
 
 /**
