@@ -108,3 +108,11 @@ describe('fmtTime', () => {
     ])
   })
 })
+
+describe('echo in Hindi', () => {
+  const at = (text: string) => ({ tStart: 10, tEnd: 13, text })
+  it('compares whole Devanagari words, so lines that differ only in vowel signs aren’t echoes', () => {
+    expect(isEcho(at('वो की थी'), [at('वो का था')])).toBe(false)
+    expect(isEcho(at('हमें कल से काम शुरू करना है'), [at('हमें कल से काम शुरू करना है')])).toBe(true)
+  })
+})

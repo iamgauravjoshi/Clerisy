@@ -177,7 +177,17 @@ const NEGATIONS = new Set([
   'havent',
   'hasnt',
   'hadnt',
-  'aint'
+  'aint',
+  // Hindi and Hinglish, in Devanagari and romanised. Not न/ना: in Hinglish they're mostly a tag ("रहोगे न?")
+  'नहीं',
+  'नही',
+  'मत',
+  'बिना',
+  'nahi',
+  'nahin',
+  'nahiin',
+  'mat',
+  'bina'
 ])
 const isNegation = (w: string): boolean => NEGATIONS.has(w) || w.endsWith("n't")
 
@@ -187,9 +197,12 @@ interface Token {
   end: number
 }
 
-/** Whole words with their character offsets; lower-cased, with curly apostrophes straightened. */
+/**
+ * Whole words with their character offsets; lower-cased, with curly apostrophes straightened. Combining marks
+ * (\p{M}) belong to the word: Devanagari vowel signs and virama are marks, so without them "बहुत" fell apart into "बह" and "त".
+ */
 function tokenize(s: string): Token[] {
-  return [...s.matchAll(/[\p{L}\p{N}]+(?:['’‘][\p{L}\p{N}]+)*/gu)].map((m) => ({
+  return [...s.matchAll(/[\p{L}\p{N}][\p{L}\p{M}\p{N}]*(?:['’‘][\p{L}\p{M}\p{N}]+)*/gu)].map((m) => ({
     word: m[0].toLowerCase().replace(/[’‘]/g, "'"),
     start: m.index,
     end: m.index + m[0].length

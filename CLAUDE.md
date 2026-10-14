@@ -110,7 +110,9 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
 - **Evidence validation is mandatory.** Each quote must match its cited segment (or a neighbouring line) via `matchQuote`, which compares whole words:
   - at least 3 words, with at least 85% of the quote's words found in order;
   - the quote must cover at least 75% of the matched transcript span, so scattered words don't count;
-  - a negation (not, no, never, n't…) may not be added or dropped.
+  - a negation (not, no, never, n't…, and Hindi नहीं/मत/बिना and their romanised forms) may not be added or dropped.
+
+  A word is letters, digits **and combining marks** (`\p{M}`), here and in `isEcho`: Devanagari vowel signs and virama are marks, and without them Hindi words fell apart into fragments that matched each other.
 
   The stored `Evidence.quote` is the **transcript's own span** returned by `matchQuote`, never the model's text.
   - Proposals with no valid evidence are dropped and counted in `report.droppedCount`.
@@ -252,5 +254,5 @@ Offline and free, with sherpa-onnx. The choice of model and the numbers behind i
 ## Known limitations
 
 - Windows only: the detector and loopback capture are Windows-specific.
-- Local speech-to-text is English-only, and its speaker labels over-split voices (merge them on the meeting page). Hinglish needs a different engine (the spike suggests whisper.cpp large-v3-turbo) or a cloud provider.
+- Local speech-to-text is English-only, and its speaker labels over-split voices (merge them on the meeting page). Hinglish goes to a cloud provider: whisper.cpp large-v3-turbo writes good Hindi but ran at 2–3× real time on a 4-core CPU (`spike/whispercpp/FINDINGS.md`; a Vulkan/GPU build is the next thing to try).
 - Single-user, with no code signing.
