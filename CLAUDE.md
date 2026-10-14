@@ -254,5 +254,5 @@ Offline and free, with sherpa-onnx. The choice of model and the numbers behind i
 ## Known limitations
 
 - Windows only: the detector and loopback capture are Windows-specific.
-- Local speech-to-text is English-only, and its speaker labels over-split voices (merge them on the meeting page). Hinglish needs a different engine (the spike suggests whisper.cpp large-v3-turbo) or a cloud provider.
+- Local speech-to-text is English-only, and its speaker labels over-split voices (merge them on the meeting page). Hinglish goes to a cloud provider: whisper.cpp large-v3-turbo writes good Hindi but ran at 2–3× real time on a 4-core CPU (`spike/whispercpp/FINDINGS.md`; a Vulkan/GPU build is the next thing to try).
 - Single-user, with no code signing.

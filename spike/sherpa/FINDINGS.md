@@ -135,7 +135,7 @@ node label.js results/<audio name> whisper-turbo 0.9
 - The broken Devanagari, with consonants dropped and vowel signs stranded, points to **int8 quantization damage or a token-to-text problem** in this export, not just a hard accent. The English parts of the same segments come out cleanly.
 - Forcing English gives a **translation**, not a transcript. MeetingBuddy's evidence quotes would then be machine translations, and loops and invented lines would slip through quote validation, because the quotes would match the (wrong) transcript.
 
-**What to try for Hinglish:**
+**What to try for Hinglish:** (step 7 tried option 1: [../whispercpp/FINDINGS.md](../whispercpp/FINDINGS.md). Its Hindi is well-formed, but it runs at 2–3× real time on this CPU.)
 1. **whisper.cpp** (`whisper-cpp-node`, prebuilt win-x64 with Vulkan) with **large-v3-turbo in a non-int8 format** (q5/q8 GGML or f16). That's a different decoder and quantization, and has a better track record on Hindi.
 2. A Hindi-specific or Indic model. For example, AI4Bharat's IndicConformer has ONNX exports for Hindi, so sherpa-onnx may be able to run it.
 3. Until one of those passes this same test, **keep Hinglish meetings on a cloud provider**: Deepgram nova-3 handles multilingual and code-switched speech, and Groq/OpenAI run full Whisper large-v3. The app's language setting can route "Hindi / Hinglish" there.
