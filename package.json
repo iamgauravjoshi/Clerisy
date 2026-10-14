@@ -1,6 +1,6 @@
 {
   "name": "meetingbuddy",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "AI project meeting intelligence: what changed in the project because of this meeting?",
   "main": "./out/main/index.js",
   "scripts": {
