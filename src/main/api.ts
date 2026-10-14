@@ -16,6 +16,7 @@ import type {
 } from '@shared/types'
 import * as db from './db'
 import { analyzeMeeting, applyApproved } from './analysis'
+import { askProject } from './ask'
 import { applyLoginItem, getSettings, loginItemStatus, saveSettings, setSecret } from './settings'
 import { appIconPath } from './icons'
 import { Updater } from './updater'
@@ -399,6 +400,11 @@ export const api = {
   // analysis & approval
   analyzeMeeting: (meetingId: string) => analyzeMeeting(meetingId),
   getReport: (meetingId: string) => db.getReport(meetingId),
+
+  // Ask the project: answers from the project's own record, every point backed by an item or a checked quote
+  askProject: (projectId: string, question: string) => askProject(projectId, question),
+  listQuestions: (projectId: string) => db.listQuestions(projectId),
+  deleteQuestion: (questionId: string) => db.deleteQuestion(questionId),
 
   // local (offline) speech-to-text: the model on disk, its download, and a self-test of the whole path
   getLocalModelStatus: () => localModelStatus(),

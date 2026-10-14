@@ -1,6 +1,6 @@
 import { ITEM_TYPE_LABELS, ITEM_TYPES, type Item, type ItemType, type Stakeholder } from '@shared/types'
 import { CalendarClock, LayoutGrid, Plus } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ItemStatusBadge } from '../../components/domain'
 import { Avatar, EmptyState, Icon, IconButton, SkeletonCard, Switch } from '../../components/ui'
 import { cn } from '../../lib/cn'
@@ -18,15 +18,27 @@ export function StateBoard({
   projectId,
   items,
   stakeholders,
-  onChanged
+  onChanged,
+  openItem
 }: {
   projectId: string
   items: Item[] | null
   stakeholders: Stakeholder[]
   onChanged: () => Promise<void>
+  /** an item to open straight away (from an answer's source); n changes with each request, so the same item reopens */
+  openItem?: { id: string; n: number }
 }) {
   const [showClosed, setShowClosed] = useState(false)
   const [edit, setEdit] = useState<Partial<Item> | null>(null)
+  const opened = useRef(0)
+  useEffect(() => {
+    const item = openItem && opened.current !== openItem.n ? items?.find((i) => i.id === openItem.id) : undefined
+    if (!item || !openItem) return
+    opened.current = openItem.n
+    // a closed item is only visible with the switch on
+    if (item.status !== 'open') setShowClosed(true)
+    setEdit(item)
+  }, [openItem, items])
 
   const open = items?.filter((i) => i.status === 'open').length ?? 0
   const visible = items?.filter((i) => showClosed || i.status === 'open') ?? []

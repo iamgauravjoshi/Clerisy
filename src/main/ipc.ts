@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ITEM_TYPES } from '@shared/types'
+import { ITEM_TYPES, MAX_QUESTION_LENGTH } from '@shared/types'
 import type { Api } from './api'
 
 // Everything that arrives over IPC is untrusted: these schemas check every argument of every api function
@@ -113,6 +113,9 @@ export const API_ARGS = {
 
   analyzeMeeting: z.tuple([id]),
   getReport: z.tuple([id]),
+  askProject: z.tuple([id, z.string().max(MAX_QUESTION_LENGTH + 100)]),
+  listQuestions: z.tuple([id]),
+  deleteQuestion: z.tuple([id]),
   updateProposal: z.tuple([
     id,
     z

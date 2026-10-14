@@ -136,6 +136,15 @@ To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass 
   - It covers only meetings that **started before** the one being analyzed, so re-analyzing an old meeting never sees later ones.
   - It includes the 5 most recent such meetings, with up to 20 change lines each.
 
+### Ask the project (`src/main/ask.ts`)
+
+Answers a question about one project from its own record, with the same evidence discipline as analysis. UI: the project page's **Ask** tab (`features/ask/AskPanel.tsx`); API: `askProject`, `listQuestions`, `deleteQuestion`.
+- **Context:** the whole project state (`itemRefs` from analysis.ts, so items are `DEC-2` etc.) with each item's last 3 history entries, the last 15 applied state versions (`describeChanges`), the meeting list, today's date, and **transcript lines picked by the question**: `rankLines` scores every line of every meeting by the question words it shares (stopwords dropped, a crude 5-letter stem, rarer words weigh more), `pickLines` takes the best 40 plus a neighbour either side in the same meeting (at most 160), shown as `L1…Ln` grouped by meeting. The tokenizer is `tokenize` from analysis.ts, so Devanagari works.
+- **Output:** `{ answered, points[] }`, each point with `items` (refs) and `quotes` (`line` + verbatim quote). `validateAnswer` keeps a point only if it has a known item or a quote `matchQuote` confirms (on its line or a neighbour); the stored quote is the transcript's span, items are stored as `{ id, type, title }` snapshots. Unsupported points are dropped and counted (`droppedCount`); with none left the answer is `answered: false` ("the project doesn't answer this").
+- **Stored** in the `questions` table (migration 5), newest first, deleted with the project. Model errors show the provider's own message (`providerMessage` unwraps the SDK's "Failed after 3 attempts").
+- **Sources open where they came from:** an item chip switches to the board and opens the item (`StateBoard`'s `openItem`, a counter so the same item reopens); a quote opens the meeting scrolled to its line (`View.segmentId` → `MeetingPage`'s `focusSegmentId`).
+- Tests: `test/ask.test.ts` (retrieval, validation, storage, on an in-memory database with a mock model) and `test/renderer/ask.test.tsx`.
+
 ### Local speech-to-text (`src/main/localStt/`)
 
 Offline and free, with sherpa-onnx. The choice of model and the numbers behind it are in `spike/sherpa/FINDINGS.md`: Parakeet TDT 0.6B v2 for English, which runs at about 0.08× real time on a 4-core laptop. **No local model handles Hinglish yet.** The `local` provider is a normal `sttProvider`, so every path (live chunks, the full-file pass, Transcribe recording, Import recording) uses it through `transcribe()`.

@@ -24,6 +24,7 @@ Project context → meeting capture (no bot) → transcript → AI impact analys
   - Each change shows its speaker, impact level, firm or tentative status, and quotes. Clicking a quote jumps to the transcript.
 - **Recording retention**: keep recordings, delete them once transcribed, or delete them after 7 or 30 days. Settings shows how much space they use and can delete them all; a meeting's recording can also be deleted on its own. Transcripts and reports always stay.
 - **Share the report**: copy it as a Slack or WhatsApp message or as Markdown, or save it as a Markdown file or PDF. You can share only the approved changes, or everything proposed, with or without the evidence quotes and the full transcript.
+- **Ask the project**: ask a question such as "Why did the launch date move?" or "What's still open, and who owns it?". The answer comes only from the project's state and its meetings, and every point shows its sources: the items and the verbatim transcript quotes behind it. Click one to open the item or the meeting at that line. Points nothing backs up are left out.
 - **Hallucination guard**: every proposed change must quote the transcript. Quotes are checked in code, and changes with no real evidence are discarded.
 - **Approval flow**:
   - Accept, edit or reject each change. _Accept all firm_ accepts every firm change at once.

@@ -162,6 +162,43 @@ export interface StateVersion {
   changes: { op: ProposalOp; itemId: string; itemType: ItemType; title: string; before?: Partial<Item>; after: Partial<Item> }[]
 }
 
+// ---------- Ask the project ----------
+
+/** The longest question Ask the project takes. */
+export const MAX_QUESTION_LENGTH = 500
+
+/** A transcript quote that backs an answer: the transcript's own words, checked like a proposal's evidence. */
+export interface AnswerQuote {
+  segmentId: string
+  meetingId: string
+  meetingTitle: string
+  quote: string
+  speaker: string
+  t: number
+}
+
+/** One point of an answer, with the project items and quotes it rests on (at least one of them). */
+export interface AnswerPoint {
+  text: string
+  /** the item as it was when the question was answered; it may have changed or been deleted since */
+  items: { id: string; type: ItemType; title: string }[]
+  quotes: AnswerQuote[]
+}
+
+/** A question asked about a project, and its answer. */
+export interface ProjectQuestion {
+  id: string
+  projectId: string
+  question: string
+  /** false when the project's state and meetings don't answer it */
+  answered: boolean
+  points: AnswerPoint[]
+  /** points the model gave without a source that checked out */
+  droppedCount: number
+  model: string
+  createdAt: string
+}
+
 // ---------- Settings ----------
 
 export type LlmProvider = 'anthropic' | 'openai' | 'google' | 'openrouter' | 'ollama' | 'openai-compatible'

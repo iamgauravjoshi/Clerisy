@@ -1,6 +1,6 @@
 import type { Meeting, Proposal } from '@shared/types'
 import { AudioLines, Ellipsis, Merge, Pencil, RefreshCw, Share2, Sparkles, Trash2, Users } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { api, errMsg } from '../api'
 import { MeetingStatusBadge } from '../components/domain'
 import { PageHeader } from '../components/layout'
@@ -31,6 +31,8 @@ type Pane = 'transcript' | 'report'
  */
 export function MeetingPage(props: {
   meetingId: string
+  /** a transcript line to show once the meeting has loaded (from an answer's quote) */
+  focusSegmentId?: string
   live: boolean
   selfName?: string
   onLoaded: (meeting: Meeting) => void
@@ -91,6 +93,15 @@ export function MeetingPage(props: {
     if (!wide) setPane('transcript')
     setJump((j) => ({ segmentId, n: (j?.n ?? 0) + 1 }))
   }
+
+  // show the line an answer quoted, once, when the transcript has it
+  const focused = useRef(false)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the transcript arrives; showEvidence only sets state
+  useEffect(() => {
+    if (focused.current || !props.focusSegmentId || !segments.some((s) => s.id === props.focusSegmentId)) return
+    focused.current = true
+    showEvidence(props.focusSegmentId)
+  }, [segments, props.focusSegmentId])
 
   const moveActive = (step: 1 | -1): void => {
     if (!ordered.length) return

@@ -24,7 +24,7 @@ import { SettingsPage } from './pages/SettingsPage'
 export type View =
   | { kind: 'home' }
   | { kind: 'project'; projectId: string; tab?: string }
-  | { kind: 'meeting'; meetingId: string }
+  | { kind: 'meeting'; meetingId: string; segmentId?: string }
   | { kind: 'settings' }
 
 const LAST_PROJECT = 'mb:lastProject'
@@ -69,7 +69,8 @@ function Shell() {
     if (view.kind === 'project') localStorage.setItem(LAST_PROJECT, view.projectId)
   }, [view])
 
-  const openMeeting = useCallback((meetingId: string) => setView({ kind: 'meeting', meetingId }), [])
+  // segmentId: a transcript line to scroll to (from an answer's quote)
+  const openMeeting = useCallback((meetingId: string, segmentId?: string) => setView({ kind: 'meeting', meetingId, segmentId }), [])
   const recording = useRecordingController({
     notify: ({ tone, message }) => show({ tone, title: message }),
     openMeeting
@@ -185,6 +186,7 @@ function Shell() {
         <MeetingPage
           key={view.meetingId}
           meetingId={view.meetingId}
+          focusSegmentId={view.segmentId}
           live={rec?.meetingId === view.meetingId}
           selfName={settings?.selfName}
           onLoaded={setMeeting}
