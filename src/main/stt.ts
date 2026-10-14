@@ -154,10 +154,11 @@ async function request(
     }))
 }
 
+// combining marks (\p{M}) stay in the word: Devanagari vowel signs are marks
 const words = (t: string): string[] =>
   t
     .toLowerCase()
-    .replace(/[^\p{L}\p{N} ]+/gu, ' ')
+    .replace(/[^\p{L}\p{M}\p{N} ]+/gu, ' ')
     .split(/\s+/)
     .filter(Boolean)
 

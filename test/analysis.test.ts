@@ -173,3 +173,21 @@ describe('describeChanges', () => {
     expect(lines.at(-1)).toBe('…and 5 more changes')
   })
 })
+
+describe('evidence in Hindi and Hinglish', () => {
+  // Devanagari vowel signs are combining marks: they belong to the word, or quotes end mid-word
+  const line = 'तो हमें कल से काम शुरू करना है, deadline friday है'
+  it('returns whole Devanagari words, vowel signs included', () => {
+    expect(matchQuote('कल से काम शुरू करना', line)).toBe('कल से काम शुरू करना')
+  })
+  it('matches Hinglish quotes that mix scripts', () => {
+    expect(matchQuote('शुरू करना है, deadline friday', line)).toBe('शुरू करना है, deadline friday')
+  })
+  it('rejects a quote that drops or adds a Hindi negation', () => {
+    expect(quoteMatches('हम कल से काम शुरू करेंगे', 'हम कल से काम शुरू नहीं करेंगे')).toBe(false)
+    expect(quoteMatches('hum kal se kaam nahi karenge', 'hum kal se kaam karenge')).toBe(false)
+  })
+  it('tells apart words that differ only in their vowel signs', () => {
+    expect(quoteMatches('वो की थी', 'वो का था')).toBe(false)
+  })
+})
