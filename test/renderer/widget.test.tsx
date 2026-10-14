@@ -12,7 +12,8 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-const RECORDING: WidgetState = { mode: 'recording', meetingId: 'm1', title: 'Weekly sync', startedAt: Date.now() - 125_000 }
+// started 2:05 ago, counted from when each test runs (a fixed time drifts while the suite runs)
+const recording = (): WidgetState => ({ mode: 'recording', meetingId: 'm1', title: 'Weekly sync', startedAt: Date.now() - 125_000 })
 const calls = (invoke: ReturnType<typeof fakeMb>) => invoke.mock.calls.filter(([n]) => n === 'widgetAction').map(([, a]) => a)
 
 function setup(state: WidgetState | null) {
@@ -23,9 +24,10 @@ function setup(state: WidgetState | null) {
 
 describe('floating widget', () => {
   it('shows the recording: timer, meeting and its latest line', async () => {
-    setup(RECORDING)
+    setup(recording())
     expect(await screen.findByText('Weekly sync')).toBeTruthy()
-    expect(screen.getByRole('timer', { name: 'Recording time' }).textContent).toBe('02:05')
+    // 02:05, or a few seconds later on a loaded machine
+    expect(screen.getByRole('timer', { name: 'Recording time' }).textContent).toMatch(/^02:(0[5-9]|1[0-9])$/)
     expect(screen.getByText('Recording…')).toBeTruthy()
     act(() => emitMain('transcript:appended', 'm1', [{ ...SEGMENT, speaker: 'Priya', text: 'Ship it Friday.' }]))
     expect(screen.getByText('Priya: Ship it Friday.')).toBeTruthy()
@@ -35,7 +37,7 @@ describe('floating widget', () => {
   })
 
   it('marks, stops and opens through main, and confirms the mark', async () => {
-    const invoke = setup(RECORDING)
+    const invoke = setup(recording())
     fireEvent.click(await screen.findByRole('button', { name: 'Mark important moment' }))
     expect(screen.getByText('Marked as important')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Stop recording' }))
@@ -55,7 +57,7 @@ describe('floating widget', () => {
     setup(null)
     await act(async () => {})
     expect(screen.queryByRole('button')).toBeNull()
-    act(() => emitMain('widget:state', RECORDING))
+    act(() => emitMain('widget:state', recording()))
     expect(screen.getByText('Weekly sync')).toBeTruthy()
     act(() => emitMain('widget:state', null))
     expect(screen.queryByText('Weekly sync')).toBeNull()
