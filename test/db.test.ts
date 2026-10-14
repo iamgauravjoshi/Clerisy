@@ -50,7 +50,7 @@ const raw = <T>(path: string, fn: (d: DatabaseSync) => T): T => {
 const userVersion = (d: DatabaseSync): number => (d.prepare('PRAGMA user_version').get() as { user_version: number }).user_version
 const backups = (): string[] =>
   readdirSync(dir)
-    .filter((f) => f.startsWith('meetingbuddy.db.bak'))
+    .filter((f) => f.startsWith('clerisy.db.bak'))
     .sort()
 
 // a v0.1 database with a project and an item in it
@@ -66,7 +66,7 @@ const legacyDb = (version = 0): void =>
 
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), 'mb-db-'))
-  file = join(dir, 'meetingbuddy.db')
+  file = join(dir, 'clerisy.db')
 })
 afterEach(() => {
   db.closeDb()
@@ -103,8 +103,8 @@ describe('migrations', { timeout: 30_000 }, () => {
   it('backs up the database before migrating it', () => {
     legacyDb()
     db.openDb(file)
-    expect(backups()).toEqual(['meetingbuddy.db.bak-v0'])
-    raw(join(dir, 'meetingbuddy.db.bak-v0'), (d) => {
+    expect(backups()).toEqual(['clerisy.db.bak-v0'])
+    raw(join(dir, 'clerisy.db.bak-v0'), (d) => {
       expect(userVersion(d)).toBe(0)
       expect(d.prepare('SELECT name FROM projects').all()).toEqual([{ name: 'Phoenix' }])
     })
@@ -112,9 +112,9 @@ describe('migrations', { timeout: 30_000 }, () => {
 
   it('keeps only the latest backup', () => {
     legacyDb(1)
-    writeFileSync(join(dir, 'meetingbuddy.db.bak-v0'), 'older backup')
+    writeFileSync(join(dir, 'clerisy.db.bak-v0'), 'older backup')
     db.openDb(file)
-    expect(backups()).toEqual(['meetingbuddy.db.bak-v1'])
+    expect(backups()).toEqual(['clerisy.db.bak-v1'])
   })
 
   it('does not back up a database that is already up to date', () => {

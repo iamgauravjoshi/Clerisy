@@ -256,7 +256,7 @@ export interface AppInfo {
   version: string
   packaged: boolean // false when running from source (npm run dev / start)
   dataDir: string
-  // whether Windows will actually start the app at sign-in; startup apps can be switched off outside MeetingBuddy
+  // whether Windows will actually start the app at sign-in; startup apps can be switched off outside Clerisy
   loginItem: { supported: boolean; willLaunch: boolean }
 }
 

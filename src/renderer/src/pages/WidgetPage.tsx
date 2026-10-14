@@ -54,7 +54,7 @@ export function WidgetPage() {
   return (
     <main
       className={`flex h-screen items-center gap-3 overflow-hidden border border-line-strong bg-surface px-3 text-fg ${DRAG}`}
-      aria-label="MeetingBuddy controls"
+      aria-label="Clerisy controls"
     >
       {recording ? (
         <>
@@ -73,7 +73,7 @@ export function WidgetPage() {
           <span className={`flex shrink-0 items-center gap-1 ${NO_DRAG}`}>
             <IconButton icon={Flag} label="Mark important moment" onClick={() => act('mark')} />
             <IconButton icon={Square} label="Stop recording" variant="danger" onClick={() => act('stop')} />
-            <IconButton icon={AppWindow} label="Open MeetingBuddy" onClick={() => act('open')} />
+            <IconButton icon={AppWindow} label="Open Clerisy" onClick={() => act('open')} />
           </span>
         </>
       ) : (

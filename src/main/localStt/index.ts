@@ -18,7 +18,7 @@ export const modelsRoot = (): string => join(app.getPath('userData'), 'models')
 let engine: LocalSttEngine | null = null
 const getEngine = (): LocalSttEngine =>
   (engine ??= new LocalSttEngine({
-    spawn: () => utilityProcess.fork(workerPath, [], { serviceName: 'MeetingBuddy transcription' }) as unknown as WorkerHandle
+    spawn: () => utilityProcess.fork(workerPath, [], { serviceName: 'Clerisy transcription' }) as unknown as WorkerHandle
   }))
 
 /** Stops the worker and closes the decoder window; on quit. */

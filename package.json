@@ -1,5 +1,5 @@
 {
-  "name": "meetingbuddy",
+  "name": "clerisy",
   "version": "0.3.0",
   "description": "AI project meeting intelligence: what changed in the project because of this meeting?",
   "main": "./out/main/index.js",
@@ -13,9 +13,10 @@
     "lint": "biome lint .",
     "format": "biome format --write .",
     "check": "biome ci .",
-    "icons": "node scripts/build-icons.mjs"
+    "icons": "node scripts/build-icons.mjs",
+    "site": "node scripts/serve-site.mjs"
   },
-  "author": "MeetingBuddy",
+  "author": "Clerisy",
   "license": "UNLICENSED",
   "type": "commonjs",
   "dependencies": {
@@ -60,10 +61,10 @@
     "esbuild@0.28.2": true,
     "electron-winstaller@5.4.0": true
   },
-  "productName": "MeetingBuddy",
+  "productName": "Clerisy",
   "build": {
     "appId": "com.meetingbuddy.app",
-    "productName": "MeetingBuddy",
+    "productName": "Clerisy",
     "directories": {
       "output": "release"
     },
@@ -98,7 +99,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "MeetingBuddy",
+      "shortcutName": "Clerisy",
       "deleteAppDataOnUninstall": false
     }
   },

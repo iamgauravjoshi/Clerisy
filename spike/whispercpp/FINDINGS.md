@@ -67,28 +67,28 @@ Time and RTF are for the whole 6-minute talk (5.3 minutes of speech). "hi" means
 
 **Reading the transcripts:**
 - **Beam search (q5_0 and q8_0) gives a readable, faithful Hinglish transcript.** A stretch from the q5_0 run: "अगर आप खेल रहे हो खेलने के लिए तो आपको हराने का कोई तरीका ही नहीं अगर दोनों की skill बराबर है". The errors are the kind a person would make writing down speech by ear: पतनी for "पता नहीं", परबाद for बरबाद, कॉंटरिक्शन for "contradiction", काईगा for कहेगा.
-- **English words come out in either script, inconsistently:** sometimes Devanagari (इंटर्व्यू, कॉंफिडेंटली, स्ट्रेस), sometimes Latin ("skill", "stress", "hero", "you are acting out of curiosity"). The same word can switch within one run. That is fine for MeetingBuddy (the analysis model reads both, and evidence quotes come from the transcript itself), but searching the transcript for an English term would miss its Devanagari spelling.
+- **English words come out in either script, inconsistently:** sometimes Devanagari (इंटर्व्यू, कॉंफिडेंटली, स्ट्रेस), sometimes Latin ("skill", "stress", "hero", "you are acting out of curiosity"). The same word can switch within one run. That is fine for Clerisy (the analysis model reads both, and evidence quotes come from the transcript itself), but searching the transcript for an English term would miss its Devanagari spelling.
 - **Greedy decoding with temperature fallback falls apart:** half the words are missing and some windows are noise ("लोगका कर दिया уже क HE D dab", "subscribe"-style endings).
-- **Greedy without fallback** keeps more words, and most windows read like the beam runs, but the first minute is a loop: "पर दो पर दो…" 36 times, then 14 more. In MeetingBuddy a loop would be in the transcript itself, so quote validation can't catch it.
+- **Greedy without fallback** keeps more words, and most windows read like the beam runs, but the first minute is a loop: "पर दो पर दो…" 36 times, then 14 more. In Clerisy a loop would be in the transcript itself, so quote validation can't catch it.
 - **q8_0 vs q5_0:** q8_0 was faster here (2.1 vs 3.1× real time) and just as clean, but kept fewer words (649 vs 761), mostly by ending more 30-second windows early (§4).
-- **Language auto-detect isn't usable for Hinglish:** whisper.cpp detects the language once, from the first 30 seconds, and picked **English** (p = 0.87) for this talk. The language has to be set to Hindi, which MeetingBuddy's meeting-language setting already does.
+- **Language auto-detect isn't usable for Hinglish:** whisper.cpp detects the language once, from the first 30 seconds, and picked **English** (p = 0.87) for this talk. The language has to be set to Hindi, which Clerisy's meeting-language setting already does.
 
 ## 3. Not run
 
 - **Full large-v3 (q5_0):** its decoder has 32 layers to turbo's 4. With decoding already the bottleneck, beam search would take well over an hour for this 6-minute talk on this CPU.
-- **Language = English:** the sherpa spike showed that forcing English on Hinglish speech translates it, which MeetingBuddy can't use as evidence.
+- **Language = English:** the sherpa spike showed that forcing English on Hinglish speech translates it, which Clerisy can't use as evidence.
 - **GPU:** whisper.cpp's Vulkan backend could use the Iris Xe, but the release has no prebuilt Windows Vulkan build. That needs a source build (`-DGGML_VULKAN=1`), or the `whisper-cpp-node` npm package, which the sherpa spike noted ships a prebuilt win-x64 Vulkan build (not checked here). It's the most promising next experiment (§6).
 
 ## 4. Problems an integration would have to handle
 
-1. **Words lost at 30-second window edges.** whisper.cpp's VAD stitches speech into 30-second windows, and the decoder sometimes stops mid-word at the window's end: the line ends in a half character ("…और एक मैं �") and the next line starts a second later. 2–4 lines per beam-search run. Capping VAD chunks at 20 s (`-vmsd 20`) did **not** prevent it, because the chunks are still merged into 30-second windows. MeetingBuddy would have to feed whisper.cpp its own ≤20 s speech segments (as `LocalTranscriber` already does for Parakeet) instead of using whisper-cli's VAD.
+1. **Words lost at 30-second window edges.** whisper.cpp's VAD stitches speech into 30-second windows, and the decoder sometimes stops mid-word at the window's end: the line ends in a half character ("…और एक मैं �") and the next line starts a second later. 2–4 lines per beam-search run. Capping VAD chunks at 20 s (`-vmsd 20`) did **not** prevent it, because the chunks are still merged into 30-second windows. Clerisy would have to feed whisper.cpp its own ≤20 s speech segments (as `LocalTranscriber` already does for Parakeet) instead of using whisper-cli's VAD.
 2. **Whole stretches missing.** Three of the four full runs checked each left out a different 19–36 s stretch (05:19–05:38, 03:54–04:30, 04:13–04:37), so it is the decoder giving up on a window, not silence in the audio. The q8_0 run had no such gap.
 3. **Tiny duplicate lines.** Each run has 3–11 segments shorter than 0.3 s, usually a cut-off copy of the next line ("क्या परबाद हो जाओग" then "क्या परबाद हो जाऊंगा"). These should be dropped before the transcript is saved.
 4. **Packaging:** `whisper-cli.exe` with `whisper.dll` and the `ggml*.dll` files is about 12 MB (one CPU-kernel DLL per instruction set, picked at run time), plus 574–874 MB per model. It would run as a child process like the sherpa worker, with no native addon. The OpenBLAS build adds `libopenblas.dll`.
 
 ## 5. A bug this trial found in the app (fixed)
 
-MeetingBuddy's word splitters, in evidence validation (`tokenize` in `analysis.ts`) and in echo filtering (`isEcho` in `stt.ts`), matched letters and digits only. Devanagari vowel signs and virama are combining marks (`\p{M}`), so every Hindi word fell apart: "तो आपके हारने के चांसे बहुत" became "त | आपक | ह | रन | क | च | स | बह | त". That affected **Hindi transcripts from the cloud providers too**:
+Clerisy's word splitters, in evidence validation (`tokenize` in `analysis.ts`) and in echo filtering (`isEcho` in `stt.ts`), matched letters and digits only. Devanagari vowel signs and virama are combining marks (`\p{M}`), so every Hindi word fell apart: "तो आपके हारने के चांसे बहुत" became "त | आपक | ह | रन | क | च | स | बह | त". That affected **Hindi transcripts from the cloud providers too**:
 - quotes could end mid-word ("करन" for "करना");
 - lines that differ only in their vowel signs ("वो की थी" / "वो का था") counted as the same words, both for quote matching and for echo removal;
 - Hindi negations (नहीं, मत) weren't in the list a quote may not add or drop.
@@ -99,5 +99,5 @@ Fixed in this branch, with tests: words now include combining marks, and the neg
 
 1. **v0.2.0: keep Hinglish on a cloud provider.** The current routing stays: English local, Hindi/Hinglish to the chosen cloud provider (Deepgram nova-3 with `language=multi` is the recommended one). Local quality would now be acceptable, but 1–1.5 hours of full CPU after a 30-minute meeting isn't, and the faster settings produce loops that evidence validation can't catch.
 2. **Next experiment, if local Hinglish matters:** a **Vulkan build** of whisper.cpp on the Iris Xe. GPU encoders are usually several times faster, and decoding moves with them. Target: under 1× real time with beam search on this laptop. Run the same `run.ps1` and `analyze.mjs` on it.
-3. **If that passes, the integration would be:** whisper-cli as a child process, q5_0 turbo (574 MB, a separate optional download), language forced to Hindi, beam search, MeetingBuddy's own ≤20 s VAD segments, segments under 0.3 s dropped, and only for the final pass (never live chunks).
+3. **If that passes, the integration would be:** whisper-cli as a child process, q5_0 turbo (574 MB, a separate optional download), language forced to Hindi, beam search, Clerisy's own ≤20 s VAD segments, segments under 0.3 s dropped, and only for the final pass (never live chunks).
 4. **Still worth testing:** a Hindi-specific model (AI4Bharat IndicConformer via sherpa-onnx), and a hand-corrected 2–3 minute reference, so these comparisons get real word error rates instead of failure counts.

@@ -11,13 +11,13 @@ function describe(s: UpdateStatus): string {
     case 'unsupported':
       return 'Running from source: updates come from pulling the code, not from GitHub releases.'
     case 'idle':
-      return s.checkedAt ? `MeetingBuddy is up to date. Checked ${fmtRelative(s.checkedAt)}.` : 'Not checked for updates yet.'
+      return s.checkedAt ? `Clerisy is up to date. Checked ${fmtRelative(s.checkedAt)}.` : 'Not checked for updates yet.'
     case 'checking':
       return 'Checking for updates…'
     case 'downloading':
-      return `Downloading MeetingBuddy ${s.version}… ${s.percent}%`
+      return `Downloading Clerisy ${s.version}… ${s.percent}%`
     case 'downloaded':
-      return `MeetingBuddy ${s.version} is ready. Restart to update now, or it installs the next time you quit.`
+      return `Clerisy ${s.version} is ready. Restart to update now, or it installs the next time you quit.`
     case 'error':
       return `Last check ${fmtRelative(s.checkedAt)}.`
   }
@@ -71,7 +71,7 @@ export function UpdatesPanel({ autoUpdate, onAutoUpdate }: { autoUpdate: boolean
         onChange={onAutoUpdate}
         disabled={!supported}
         label="Check for updates automatically"
-        hint="Checks GitHub a little after MeetingBuddy starts and every few hours, never while recording, and downloads new versions in the background."
+        hint="Checks GitHub a little after Clerisy starts and every few hours, never while recording, and downloads new versions in the background."
       />
     </div>
   )

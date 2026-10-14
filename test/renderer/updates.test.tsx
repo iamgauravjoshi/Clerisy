@@ -33,14 +33,14 @@ describe('updates panel', () => {
     const check = screen.getByRole('button', { name: 'Check for updates' })
     await act(async () => fireEvent.click(check))
     expect(calls(invoke, 'checkForUpdates')).toEqual([[]])
-    expect(screen.getByText('MeetingBuddy is up to date. Checked just now.')).toBeTruthy()
+    expect(screen.getByText('Clerisy is up to date. Checked just now.')).toBeTruthy()
   })
 
   it('follows the download as main reports it, then offers the restart', async () => {
     const { invoke } = panel({ state: 'idle', checkedAt: null }, { installUpdate: () => undefined })
     await screen.findByText('Not checked for updates yet.')
     act(() => emitMain('update:status', { state: 'downloading', version: '0.2.0', percent: 42 }))
-    expect(screen.getByText('Downloading MeetingBuddy 0.2.0… 42%')).toBeTruthy()
+    expect(screen.getByText('Downloading Clerisy 0.2.0… 42%')).toBeTruthy()
     expect(screen.getByRole('progressbar', { name: 'Downloading update' }).getAttribute('aria-valuenow')).toBe('42')
     expect((screen.getByRole('button', { name: 'Check for updates' }) as HTMLButtonElement).disabled).toBe(true)
 
@@ -52,11 +52,11 @@ describe('updates panel', () => {
 
   it('says why it could not restart into the update', async () => {
     panel(READY, {
-      installUpdate: () => Promise.reject(new Error('Stop the recording first: installing the update restarts MeetingBuddy.'))
+      installUpdate: () => Promise.reject(new Error('Stop the recording first: installing the update restarts Clerisy.'))
     })
     const restart = await screen.findByRole('button', { name: 'Restart to update' })
     await act(async () => fireEvent.click(restart))
-    expect(screen.getByText('Stop the recording first: installing the update restarts MeetingBuddy.')).toBeTruthy()
+    expect(screen.getByText('Stop the recording first: installing the update restarts Clerisy.')).toBeTruthy()
   })
 
   it('shows a failed check and lets you try again', async () => {
@@ -91,7 +91,7 @@ describe('update ready banner', () => {
     await vi.waitFor(() => expect(calls(invoke, 'getUpdateStatus')).toHaveLength(1))
     expect(screen.queryByText(/is ready/)).toBeNull()
     act(() => emitMain('update:status', READY))
-    expect(screen.getByText('MeetingBuddy 0.2.0 is ready')).toBeTruthy()
+    expect(screen.getByText('Clerisy 0.2.0 is ready')).toBeTruthy()
   })
 
   it('restarts into the update', async () => {
@@ -106,7 +106,7 @@ describe('update ready banner', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Later' }))
     expect(screen.queryByText(/is ready/)).toBeNull()
     act(() => emitMain('update:status', { state: 'downloaded', version: '0.3.0' }))
-    expect(screen.getByText('MeetingBuddy 0.3.0 is ready')).toBeTruthy()
+    expect(screen.getByText('Clerisy 0.3.0 is ready')).toBeTruthy()
   })
 
   it('is hidden while recording', async () => {
@@ -115,6 +115,6 @@ describe('update ready banner', () => {
     act(() => emitMain('update:status', READY))
     expect(screen.queryByText(/is ready/)).toBeNull()
     view.rerender(<UpdateReadyBanner recording={false} />)
-    expect(screen.getByText('MeetingBuddy 0.2.0 is ready')).toBeTruthy()
+    expect(screen.getByText('Clerisy 0.2.0 is ready')).toBeTruthy()
   })
 })

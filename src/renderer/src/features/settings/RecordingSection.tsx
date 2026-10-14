@@ -15,7 +15,7 @@ export function RecordingSection({
   value: Settings
   onChange: (patch: Partial<Settings>) => void
   loginItem: AppInfo['loginItem']
-  // the saved setting is on, but Windows' startup apps list has MeetingBuddy switched off
+  // the saved setting is on, but Windows' startup apps list has Clerisy switched off
   startupBlocked: boolean
   onEnableStartup: () => Promise<void>
 }) {
@@ -44,7 +44,7 @@ export function RecordingSection({
         checked={value.launchAtLogin}
         onChange={(launchAtLogin) => onChange({ launchAtLogin })}
         disabled={!loginItem.supported}
-        label="Start MeetingBuddy when Windows starts"
+        label="Start Clerisy when Windows starts"
         hint={
           loginItem.supported
             ? 'Opens quietly in the tray when you sign in, so meetings are detected without opening the app first.'
@@ -60,7 +60,7 @@ export function RecordingSection({
             </Button>
           }
         >
-          Windows has switched MeetingBuddy off in its startup apps, so it won't start when you sign in.
+          Windows has switched Clerisy off in its startup apps, so it won't start when you sign in.
           {enable.error && <span className="block text-danger-fg">{enable.error}</span>}
         </Banner>
       )}
@@ -74,8 +74,8 @@ export function RecordingSection({
         </Field>
       </div>
       <p className="flex flex-wrap items-center gap-1.5 text-fg-tertiary text-small">
-        Electron accelerators, for example <Kbd>CommandOrControl+Shift+M</Kbd> or <Kbd>Alt+F9</Kbd>. They work even while MeetingBuddy is in
-        the tray.
+        Electron accelerators, for example <Kbd>CommandOrControl+Shift+M</Kbd> or <Kbd>Alt+F9</Kbd>. They work even while Clerisy is in the
+        tray.
       </p>
     </SettingsSection>
   )

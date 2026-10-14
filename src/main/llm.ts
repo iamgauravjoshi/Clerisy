@@ -32,7 +32,7 @@ export function getModel(s: Settings): { model: LanguageModel; label: string } {
           baseURL: 'https://openrouter.ai/api/v1',
           apiKey: key,
           supportsStructuredOutputs: true,
-          headers: { 'X-Title': 'MeetingBuddy' }
+          headers: { 'X-Title': 'Clerisy' }
         })(modelId),
         label
       }

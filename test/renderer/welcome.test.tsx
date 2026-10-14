@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { WelcomePage } from '../../src/renderer/src/pages/WelcomePage'
 import { SETTINGS } from './fakeMb'
 
-// The first screen (DESIGN.md §6.1): what MeetingBuddy does, how to start, and what's left to set up.
+// The first screen (DESIGN.md §6.1): what Clerisy does, how to start, and what's left to set up.
 
 afterEach(cleanup)
 

@@ -66,7 +66,7 @@ export function pickLines(lines: { meetingId: string; text: string }[], question
   return [...picked].sort((a, b) => a - b)
 }
 
-const INSTRUCTIONS = `You are MeetingBuddy. You answer questions about one project, using only its record:
+const INSTRUCTIONS = `You are Clerisy. You answer questions about one project, using only its record:
 (1) the project state: items with IDs like DEC-2, with their recent history;
 (2) the changes that meetings applied to the project state;
 (3) excerpts of meeting transcripts, whose lines have IDs like L12.

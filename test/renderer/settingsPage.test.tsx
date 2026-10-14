@@ -128,7 +128,7 @@ describe('settings page', () => {
 
   it('saves starting with Windows like any other setting', async () => {
     const { invoke } = setup()
-    const startup = await screen.findByRole('switch', { name: 'Start MeetingBuddy when Windows starts' })
+    const startup = await screen.findByRole('switch', { name: 'Start Clerisy when Windows starts' })
     expect(startup.getAttribute('aria-checked')).toBe('true')
     fireEvent.click(startup)
     await act(async () => fireEvent.click(within(saveBar()!).getByRole('button', { name: 'Save changes' })))
@@ -173,7 +173,7 @@ describe('settings page', () => {
 
   it('can only change starting with Windows in the installed app', async () => {
     setup({}, {}, { packaged: false, loginItem: { supported: false, willLaunch: false } })
-    const startup = (await screen.findByRole('switch', { name: 'Start MeetingBuddy when Windows starts' })) as HTMLButtonElement
+    const startup = (await screen.findByRole('switch', { name: 'Start Clerisy when Windows starts' })) as HTMLButtonElement
     expect(startup.disabled).toBe(true)
     expect(screen.getByText('Available in the installed app. Running from source leaves Windows startup unchanged.')).toBeTruthy()
     expect(screen.getByText('Running from source')).toBeTruthy()
@@ -189,16 +189,16 @@ describe('settings page', () => {
       }
     )
     const turnOn = await screen.findByRole('button', { name: 'Turn back on' })
-    expect(screen.getByText(/Windows has switched MeetingBuddy off/)).toBeTruthy()
+    expect(screen.getByText(/Windows has switched Clerisy off/)).toBeTruthy()
     await act(async () => fireEvent.click(turnOn))
     expect(calls(invoke, 'enableLoginItem')).toEqual([[]])
-    expect(screen.queryByText(/Windows has switched MeetingBuddy off/)).toBeNull()
+    expect(screen.queryByText(/Windows has switched Clerisy off/)).toBeNull()
   })
 
   it("doesn't warn about Windows startup when the setting is off", async () => {
     setup({}, { launchAtLogin: false }, { loginItem: { supported: true, willLaunch: false } })
-    await screen.findByRole('switch', { name: 'Start MeetingBuddy when Windows starts' })
-    expect(screen.queryByText(/Windows has switched MeetingBuddy off/)).toBeNull()
+    await screen.findByRole('switch', { name: 'Start Clerisy when Windows starts' })
+    expect(screen.queryByText(/Windows has switched Clerisy off/)).toBeNull()
   })
 
   it('shows the version and data folder, and opens the folder', async () => {

@@ -6,7 +6,7 @@ import { useAction } from '../../hooks/useAction'
 import { useUpdateStatus } from '../../hooks/useUpdateStatus'
 
 /**
- * "MeetingBuddy 0.2.0 is ready": offers the restart once an update has downloaded. Hidden while recording (restarting
+ * "Clerisy 0.2.0 is ready": offers the restart once an update has downloaded. Hidden while recording (restarting
  * would cut the recording off) and after Later, until the next version. Quitting installs it too.
  */
 export function UpdateReadyBanner({ recording }: { recording: boolean }) {
@@ -17,7 +17,7 @@ export function UpdateReadyBanner({ recording }: { recording: boolean }) {
   return (
     <Banner
       tone="success"
-      title={`MeetingBuddy ${status.version} is ready`}
+      title={`Clerisy ${status.version} is ready`}
       className="rounded-none border-x-0 border-t-0 px-6"
       actions={
         <>
@@ -36,7 +36,7 @@ export function UpdateReadyBanner({ recording }: { recording: boolean }) {
         </>
       }
     >
-      Restart now, or it installs the next time you quit MeetingBuddy.
+      Restart now, or it installs the next time you quit Clerisy.
       {install.error && <span className="block text-danger-fg">{install.error}</span>}
     </Banner>
   )

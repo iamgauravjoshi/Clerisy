@@ -28,7 +28,7 @@ export function AboutSection({
       <div className="flex items-center gap-3">
         <BrandMark size="lg" />
         <div className="flex flex-col">
-          <span className="text-body-strong">MeetingBuddy</span>
+          <span className="text-body-strong">Clerisy</span>
           <span className="flex items-center gap-2 text-fg-secondary text-small">
             Version {info.version}
             {!info.packaged && <Badge>Running from source</Badge>}

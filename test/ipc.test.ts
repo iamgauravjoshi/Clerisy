@@ -69,7 +69,7 @@ describe('IPC argument schemas', () => {
 })
 
 describe('trusted app URLs', () => {
-  const index = join('C:', 'Program Files', 'MeetingBuddy', 'resources', 'app.asar', 'out', 'renderer', 'index.html')
+  const index = join('C:', 'Program Files', 'Clerisy', 'resources', 'app.asar', 'out', 'renderer', 'index.html')
   const appUrl = pathToFileURL(index).href
 
   it('trust the bundled renderer page', () => {
