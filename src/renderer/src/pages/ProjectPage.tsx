@@ -2,6 +2,7 @@ import { Pencil } from 'lucide-react'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { PageHeader } from '../components/layout'
 import { Button, Skeleton, Tabs } from '../components/ui'
+import { AskPanel } from '../features/ask/AskPanel'
 import { StateBoard } from '../features/board/StateBoard'
 import { HistoryPanel } from '../features/history/HistoryPanel'
 import { MeetingsPanel } from '../features/meetings/MeetingsPanel'
@@ -10,22 +11,24 @@ import { ProjectSummaryStrip } from '../features/projects/ProjectSummaryStrip'
 import { useProjectData } from '../features/projects/useProjectData'
 import { StakeholdersPanel } from '../features/stakeholders/StakeholdersPanel'
 
-export type ProjectTab = 'board' | 'meetings' | 'stakeholders' | 'history'
-const TABS: ProjectTab[] = ['board', 'meetings', 'stakeholders', 'history']
+export type ProjectTab = 'board' | 'ask' | 'meetings' | 'stakeholders' | 'history'
+const TABS: ProjectTab[] = ['board', 'ask', 'meetings', 'stakeholders', 'history']
 
 /**
- * A project (DESIGN.md §6.2–6.5): header, summary strip, and tabs for the project state, meetings, stakeholders and
- * change history. Recording and importing live in the top bar's Capture menu.
+ * A project (DESIGN.md §6.2–6.5): header, summary strip, and tabs for the project state, Ask the project, meetings,
+ * stakeholders and change history. Recording and importing live in the top bar's Capture menu.
  */
 export function ProjectPage(props: {
   projectId: string
   initialTab?: string
-  onOpenMeeting: (id: string) => void
+  onOpenMeeting: (id: string, segmentId?: string) => void
   onProjectsChanged: (deletedId?: string) => void
 }) {
   const data = useProjectData(props.projectId)
   const [tab, setTab] = useState<ProjectTab>(TABS.includes(props.initialTab as ProjectTab) ? (props.initialTab as ProjectTab) : 'board')
   const [editing, setEditing] = useState(false)
+  // an item an answer pointed to: the board opens it
+  const [openItem, setOpenItem] = useState<{ id: string; n: number }>()
   const [expanded, setExpanded] = useState(false)
   const { project, items, meetings, stakeholders, versions, reload } = data
   // whether the two-line clamp hides text, so "Show more" only appears when there is more to show
@@ -88,6 +91,7 @@ export function ProjectPage(props: {
         onChange={setTab}
         items={[
           { value: 'board', label: 'Project state', count: openItems },
+          { value: 'ask', label: 'Ask' },
           { value: 'meetings', label: 'Meetings', count: meetings?.length },
           { value: 'stakeholders', label: 'Stakeholders', count: stakeholders?.length },
           { value: 'history', label: 'Change history', count: versions?.length }
@@ -98,9 +102,21 @@ export function ProjectPage(props: {
             projectId={project.id}
             items={items}
             stakeholders={stakeholders ?? []}
+            openItem={openItem}
             onChanged={async () => {
               await Promise.all([reload.items(), reload.versions()])
             }}
+          />
+        )}
+        {tab === 'ask' && (
+          <AskPanel
+            projectId={project.id}
+            items={items}
+            onOpenItem={(id) => {
+              setOpenItem((o) => ({ id, n: (o?.n ?? 0) + 1 }))
+              setTab('board')
+            }}
+            onOpenMeeting={props.onOpenMeeting}
           />
         )}
         {tab === 'meetings' && <MeetingsPanel projectId={project.id} meetings={meetings} onOpen={props.onOpenMeeting} />}

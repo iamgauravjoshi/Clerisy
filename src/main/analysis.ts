@@ -27,8 +27,8 @@ const TYPE_PREFIX: Record<ItemType, string> = {
   question: 'Q'
 }
 
-/** Short, model-friendly IDs (e.g. DEC-3, S42) mapped back to database IDs. */
-function buildRefs(items: Item[], segments: Segment[]) {
+/** Short, model-friendly item IDs (e.g. DEC-3) mapped back to the items, and the items as prompt lines. Also used by ask.ts. */
+export function itemRefs(items: Item[]): { itemRef: Map<string, Item>; itemLines: string[] } {
   const itemRef = new Map<string, Item>()
   const counters: Partial<Record<ItemType, number>> = {}
   const itemLines: string[] = []
@@ -44,6 +44,12 @@ function buildRefs(items: Item[], segments: Segment[]) {
       `[${ref}] (${it.type}) ${it.title}${meta ? ` {${meta}}` : ''}${it.body ? `\n    ${it.body.replace(/\n/g, '\n    ')}` : ''}`
     )
   }
+  return { itemRef, itemLines }
+}
+
+/** Short, model-friendly IDs (e.g. DEC-3, S42) mapped back to database IDs. */
+function buildRefs(items: Item[], segments: Segment[]) {
+  const { itemRef, itemLines } = itemRefs(items)
   const segRef = new Map<string, Segment>()
   const segLines = segments.map((s, i) => {
     const ref = `S${i + 1}`
@@ -201,7 +207,7 @@ interface Token {
  * Whole words with their character offsets; lower-cased, with curly apostrophes straightened. Combining marks
  * (\p{M}) belong to the word: Devanagari vowel signs and virama are marks, so without them "बहुत" fell apart into "बह" and "त".
  */
-function tokenize(s: string): Token[] {
+export function tokenize(s: string): Token[] {
   return [...s.matchAll(/[\p{L}\p{N}][\p{L}\p{M}\p{N}]*(?:['’‘][\p{L}\p{M}\p{N}]+)*/gu)].map((m) => ({
     word: m[0].toLowerCase().replace(/[’‘]/g, "'"),
     start: m.index,

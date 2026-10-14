@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { readdirSync, rmSync } from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import type {
+  AnswerPoint,
   Evidence,
   Item,
   ItemHistoryEntry,
@@ -11,6 +12,7 @@ import type {
   Meeting,
   MeetingStatus,
   Project,
+  ProjectQuestion,
   Proposal,
   ProposalStatus,
   Report,
@@ -94,7 +96,16 @@ CREATE INDEX IF NOT EXISTS state_versions_project ON state_versions(project_id, 
   // 3: why a meeting's transcription or analysis failed, or that it was interrupted
   `ALTER TABLE meetings ADD COLUMN error TEXT;`,
   // 4: the target item's version when the proposal was made, so applying can detect it changed since
-  `ALTER TABLE proposals ADD COLUMN target_version INTEGER;`
+  `ALTER TABLE proposals ADD COLUMN target_version INTEGER;`,
+  // 5: Ask the project: questions and their answers (points with checked sources, as JSON)
+  `
+CREATE TABLE questions (
+  id TEXT PRIMARY KEY, project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  question TEXT NOT NULL, answered INTEGER NOT NULL, points TEXT NOT NULL, dropped_count INTEGER NOT NULL DEFAULT 0,
+  model TEXT NOT NULL, created_at TEXT NOT NULL
+);
+CREATE INDEX questions_project ON questions(project_id, created_at);
+`
 ]
 
 export function openDb(file: string): void {
@@ -220,6 +231,17 @@ const toProposal = (r: Row): Proposal => ({
   evidence: JSON.parse(r.evidence) as Evidence[],
   status: r.status,
   targetVersion: r.target_version ?? null
+})
+
+const toQuestion = (r: Row): ProjectQuestion => ({
+  id: r.id,
+  projectId: r.project_id,
+  question: r.question,
+  answered: !!r.answered,
+  points: JSON.parse(r.points) as AnswerPoint[],
+  droppedCount: r.dropped_count,
+  model: r.model,
+  createdAt: r.created_at
 })
 
 // ---------- projects ----------
@@ -403,6 +425,17 @@ export function deleteMeeting(mid: string): void {
 
 export function listSegments(mid: string): Segment[] {
   return (db.prepare('SELECT * FROM segments WHERE meeting_id = ? ORDER BY t_start, idx').all(mid) as Row[]).map(toSegment)
+}
+/** Every transcript line of a project's meetings, with its meeting, oldest meeting first. */
+export function listProjectSegments(pid: string): (Segment & { meetingTitle: string; meetingStartedAt: string })[] {
+  return (
+    db
+      .prepare(
+        `SELECT s.*, m.title AS meeting_title, m.started_at AS meeting_started_at FROM segments s JOIN meetings m ON m.id = s.meeting_id
+         WHERE m.project_id = ? ORDER BY m.started_at, s.t_start, s.idx`
+      )
+      .all(pid) as Row[]
+  ).map((r) => ({ ...toSegment(r), meetingTitle: r.meeting_title, meetingStartedAt: r.meeting_started_at }))
 }
 export function addSegments(mid: string, segs: Omit<Segment, 'id' | 'meetingId' | 'idx'>[]): Segment[] {
   const start = (db.prepare('SELECT COALESCE(MAX(idx), -1) + 1 AS n FROM segments WHERE meeting_id = ?').get(mid) as Row).n as number
@@ -608,4 +641,32 @@ export function replaceSegments(mid: string, sources: Segment['source'][], segs:
     deleteSegments(mid, sources)
     return addSegments(mid, segs)
   })
+}
+
+// ---------- Ask the project ----------
+
+export function saveQuestion(q: Omit<ProjectQuestion, 'id' | 'createdAt'>): ProjectQuestion {
+  const saved: ProjectQuestion = { ...q, id: id(), createdAt: now() }
+  db.prepare(
+    'INSERT INTO questions (id, project_id, question, answered, points, dropped_count, model, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  ).run(
+    saved.id,
+    saved.projectId,
+    saved.question,
+    saved.answered ? 1 : 0,
+    JSON.stringify(saved.points),
+    saved.droppedCount,
+    saved.model,
+    saved.createdAt
+  )
+  return saved
+}
+/** A project's questions, newest first. */
+export function listQuestions(pid: string, limit = 50): ProjectQuestion[] {
+  return (db.prepare('SELECT * FROM questions WHERE project_id = ? ORDER BY created_at DESC LIMIT ?').all(pid, limit) as Row[]).map(
+    toQuestion
+  )
+}
+export function deleteQuestion(qid: string): void {
+  db.prepare('DELETE FROM questions WHERE id = ?').run(qid)
 }
