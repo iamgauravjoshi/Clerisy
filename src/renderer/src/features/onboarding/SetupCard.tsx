@@ -9,7 +9,7 @@ export interface SetupStep {
   done: boolean
 }
 
-/** What's left to configure before MeetingBuddy works end to end. Ollama and custom endpoints don't need a key. */
+/** What's left to configure before Clerisy works end to end. Ollama and custom endpoints don't need a key. */
 export function setupSteps(s: Settings): SetupStep[] {
   return [
     {

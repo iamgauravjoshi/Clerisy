@@ -116,7 +116,7 @@ export function useRecordingController({
   // the user chose "Stop recording and quit": save the recording, then let main quit
   useEvent('app:quit-requested', async () => {
     try {
-      await stop('MeetingBuddy is quitting.')
+      await stop('Clerisy is quitting.')
     } finally {
       window.mb.quitReady()
     }

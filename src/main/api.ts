@@ -176,10 +176,10 @@ async function finishMeeting(meetingId: string): Promise<void> {
     }
     db.updateMeeting(meetingId, { status: 'ready', error: errors.length ? `Transcription failed for ${errors.join('; ')}` : null })
     broadcast('meeting:changed', meetingId)
-    if (errors.length) notify('MeetingBuddy: transcription incomplete', errors.join('\n'), showMainWindow)
+    if (errors.length) notify('Clerisy: transcription incomplete', errors.join('\n'), showMainWindow)
 
     if (db.listSegments(meetingId).length === 0) {
-      notify('MeetingBuddy', 'Recording saved, but no transcript was produced. Paste or upload one in the meeting page.', showMainWindow)
+      notify('Clerisy', 'Recording saved, but no transcript was produced. Paste or upload one in the meeting page.', showMainWindow)
       return
     }
     const rep = await analyzeMeeting(meetingId)
@@ -200,7 +200,7 @@ async function finishMeeting(meetingId: string): Promise<void> {
     const stuck = db.getMeeting(meetingId)?.status === 'transcribing'
     db.updateMeeting(meetingId, { ...(stuck && { status: 'ready' as const }), error: `${prior}Processing failed: ${msg}` })
     broadcast('meeting:changed', meetingId)
-    notify('MeetingBuddy: processing failed', msg, showMainWindow)
+    notify('Clerisy: processing failed', msg, showMainWindow)
   }
 }
 

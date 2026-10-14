@@ -68,7 +68,7 @@ export const SETTINGS: Settings = {
 export const APP_INFO: AppInfo = {
   version: '0.1.0',
   packaged: true,
-  dataDir: String.raw`C:\Users\me\AppData\Roaming\MeetingBuddy`,
+  dataDir: String.raw`C:\Users\me\AppData\Roaming\Clerisy`,
   loginItem: { supported: true, willLaunch: true }
 }
 

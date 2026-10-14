@@ -90,7 +90,7 @@ export function describeChanges(changes: StateVersion['changes']): string[] {
     : lines
 }
 
-const INSTRUCTIONS = `You are MeetingBuddy, an AI that tracks how a project evolves from meeting to meeting.
+const INSTRUCTIONS = `You are Clerisy, an AI that tracks how a project evolves from meeting to meeting.
 Your job is NOT to summarize the meeting. Your job is to answer: "What changed in the project because of this meeting?"
 
 You receive (1) the current project state as a list of items with IDs, (2) the changes that previous meetings made to the project state, and (3) a speaker-labelled transcript whose lines have IDs like S12.

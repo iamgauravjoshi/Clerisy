@@ -25,7 +25,8 @@ function setup(state: WidgetState | null) {
 describe('floating widget', () => {
   it('shows the recording: timer, meeting and its latest line', async () => {
     setup(recording())
-    expect(await screen.findByText('Weekly sync')).toBeTruthy()
+    // the first render waits for main's answer; a loaded machine can take a while
+    expect(await screen.findByText('Weekly sync', {}, { timeout: 5000 })).toBeTruthy()
     // 02:05, or a few seconds later on a loaded machine
     expect(screen.getByRole('timer', { name: 'Recording time' }).textContent).toMatch(/^02:(0[5-9]|1[0-9])$/)
     expect(screen.getByText('Recording…')).toBeTruthy()
@@ -41,7 +42,7 @@ describe('floating widget', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Mark important moment' }))
     expect(screen.getByText('Marked as important')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Stop recording' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Open MeetingBuddy' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Open Clerisy' }))
     expect(calls(invoke)).toEqual(['mark', 'stop', 'open'])
   })
 

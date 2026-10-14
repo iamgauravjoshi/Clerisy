@@ -1,5 +1,5 @@
 {
-  "name": "meetingbuddy-sherpa-spike",
+  "name": "clerisy-sherpa-spike",
   "private": true,
   "description": "Measures sherpa-onnx (offline speech-to-text and speaker diarization) inside Electron 44 on a real meeting recording. Not part of the app.",
   "type": "commonjs",

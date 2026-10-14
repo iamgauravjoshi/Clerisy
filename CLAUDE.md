@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-MeetingBuddy is a Windows desktop app (Electron + React + TypeScript). It answers one question: "What changed in the project because of this meeting?" It keeps a versioned **project state**: typed items such as requirement, decision, task, risk, deadline and question. It records meetings without a bot (mic plus system loopback audio) and asks an LLM to propose changes to that state. Every proposal must carry verbatim transcript evidence. Approved proposals are then applied as a new state version. It is **not** a meeting summarizer, so keep features oriented around project-state change.
+Clerisy is a Windows desktop app (Electron + React + TypeScript). It answers one question: "What changed in the project because of this meeting?" It keeps a versioned **project state**: typed items such as requirement, decision, task, risk, deadline and question. It records meetings without a bot (mic plus system loopback audio) and asks an LLM to propose changes to that state. Every proposal must carry verbatim transcript evidence. Approved proposals are then applied as a new state version. It is **not** a meeting summarizer, so keep features oriented around project-state change.
 
 ## Commands
 
@@ -19,11 +19,11 @@ npx vitest run -t "drops changes whose"     # single test by name
 npm run lint                        # Biome lint
 npm run format                      # Biome format --write
 npm run check                       # Biome ci: lint + formatting check (runs in CI)
-npm run dist:win                    # build + electron-builder → release/MeetingBuddy-Setup-x.y.z.exe (never publishes)
+npm run dist:win                    # build + electron-builder → release/Clerisy-Setup-x.y.z.exe (never publishes)
 npm run icons                       # regenerate the app and tray icons from resources/logo.svg (output is committed)
 ```
 
-To run the app against throwaway data instead of `%APPDATA%\MeetingBuddy`, pass `--user-data-dir=<dir>`, for example `npx electron . --user-data-dir=<dir> --remote-debugging-port=9333`. The remote-debugging port lets a CDP script drive the UI.
+To run the app against throwaway data instead of `%APPDATA%\Clerisy`, pass `--user-data-dir=<dir>`, for example `npx electron . --user-data-dir=<dir> --remote-debugging-port=9333`. The remote-debugging port lets a CDP script drive the UI.
 
 **Linting and formatting use Biome** (`biome.jsonc`), not ESLint/Prettier:
 - TypeScript 7 is the native port and has no JS API for typescript-eslint.
@@ -198,8 +198,8 @@ Offline and free, with sherpa-onnx. The choice of model and the numbers behind i
   - **Downloads** happen in the background (`autoDownload`). They install on quit (`autoInstallOnAppQuit`), or with **Restart to update** (`api.installUpdate`), which is refused while recording.
   - **Gotcha:** `quitAndInstall()` closes the windows **before** `before-quit` fires, and the main window hides to the tray on close unless `quitting` is set. So `install()` calls the `beforeInstall` hook, which sets `quitting = true` in `index.ts`, first. Without it the app would stay in the tray and never update.
   - Status reaches the UI through the `update:status` event. Consumers are `useUpdateStatus`, the shell's `UpdateReadyBanner` (hidden while recording), Settings › About `UpdatesPanel`, and the tray's "Restart to update" item.
-- **Publishing:** `build.publish` is GitHub with `releaseType: draft`, and the installer is named `MeetingBuddy-Setup-${version}.exe` (no spaces). Pushing a `v*` tag runs `.github/workflows/release.yml`, which checks that the tag matches `package.json`, runs check, typecheck and tests, then builds with `npm run dist:win` and uploads the installer, `.blockmap` and `latest.yml` to a **draft** with `gh release upload`, and finally fails unless all three are there and only one release has the tag. The updater ignores drafts until one is published by hand. **Don't switch back to electron-builder's `--publish`:** in 26.x `PublishManager.getOrCreatePublisher` awaits before caching, so the installer and blockmap each created their own GitHub release, and v0.1.0's .exe and latest.yml landed on a hidden draft. `build.publish` stays in package.json because it generates the packaged `app-update.yml`.
-- **To test updates without publishing:** build the app, then build a higher version into another folder with `npx electron-builder --win --publish never -c.extraMetadata.version=0.1.1 -c.directories.output=release-next`. Serve that folder over HTTP, and replace the first build's `resources/app-update.yml` with `provider: generic` and `url: http://127.0.0.1:<port>`. **Force-kill** the app afterwards: a normal quit installs the downloaded update. The download is cached in `%LOCALAPPDATA%\meetingbuddy-updater`; delete it after a test.
+- **Publishing:** `build.publish` is GitHub with `releaseType: draft`, and the installer is named `Clerisy-Setup-${version}.exe` (no spaces). Pushing a `v*` tag runs `.github/workflows/release.yml`, which checks that the tag matches `package.json`, runs check, typecheck and tests, then builds with `npm run dist:win` and uploads the installer, `.blockmap` and `latest.yml` to a **draft** with `gh release upload`, and finally fails unless all three are there and only one release has the tag. The updater ignores drafts until one is published by hand. **Don't switch back to electron-builder's `--publish`:** in 26.x `PublishManager.getOrCreatePublisher` awaits before caching, so the installer and blockmap each created their own GitHub release, and v0.1.0's .exe and latest.yml landed on a hidden draft. `build.publish` stays in package.json because it generates the packaged `app-update.yml`.
+- **To test updates without publishing:** build the app, then build a higher version into another folder with `npx electron-builder --win --publish never -c.extraMetadata.version=0.1.1 -c.directories.output=release-next`. Serve that folder over HTTP, and replace the first build's `resources/app-update.yml` with `provider: generic` and `url: http://127.0.0.1:<port>`. **Force-kill** the app afterwards: a normal quit installs the downloaded update. The download is cached in `%LOCALAPPDATA%\clerisy-updater`; delete it after a test.
 
 ### Icons
 
@@ -208,11 +208,15 @@ Offline and free, with sherpa-onnx. The choice of model and the numbers behind i
 
 ### Data and settings
 
+- **The app was called MeetingBuddy until 0.3.0.** Three things keep the old name on purpose:
+  - `build.appId` / `setAppUserModelId` stay `com.meetingbuddy.app`: electron-builder derives the NSIS install identity from it, so changing it would make the auto-update install Clerisy *next to* MeetingBuddy (two apps, two startup entries) instead of upgrading it. Users never see it.
+  - `build.publish.repo` and `REPO_URL` point at the GitHub repository, which is still `iamgauravjoshi/MeetingBuddy`. If the repository is renamed, GitHub redirects the old URLs, but update both then.
+  - `legacy.ts` moves `%APPDATA%MeetingBuddy` to `%APPDATA%Clerisy` once (a rename, so recordings and models aren't copied) and renames `meetingbuddy.db` (with `-wal`, `-shm` and backups) to `clerisy.db`. Only the **installed** app moves the folder; running from source uses the old folder in place, so a dev run never takes the data from an installed copy. If the old folder is locked (the old app still running), it is used where it is and the next start tries again. It's skipped when `--user-data-dir` is given. The detector ignores both names.
 - `db.ts` is a thin query layer over the `node:sqlite` `DatabaseSync`. Columns are snake_case and get mapped to the camelCase types in `src/shared/types.ts`.
 - **Schema changes go through `MIGRATIONS` in `db.ts`**, tracked by `PRAGMA user_version`:
   - Append a new migration; never edit one that has shipped.
   - Each migration runs in its own transaction.
-  - Before migrating an existing database, `openDb` snapshots it with `VACUUM INTO` to `meetingbuddy.db.bak-v<oldVersion>`, keeping only the latest backup.
+  - Before migrating an existing database, `openDb` snapshots it with `VACUUM INTO` to `clerisy.db.bak-v<oldVersion>`, keeping only the latest backup.
   - A database with a newer `user_version` than the app knows is refused.
 - `db.tx()` nests: the outermost call is `BEGIN`/`COMMIT`, and inner calls become savepoints. Helpers that open their own transaction (`addSegments`, `saveReport`) can run inside a larger `tx`, and an inner failure rolls back only its own work.
 - A meeting keeps only its latest report: `saveReport` deletes older ones.

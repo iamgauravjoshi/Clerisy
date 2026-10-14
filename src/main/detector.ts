@@ -16,7 +16,8 @@ const KNOWN_APPS: [RegExp, string][] = [
   [/gotomeeting|g2m/i, 'GoTo Meeting'],
   [/chrome|msedge|firefox|brave|opera|vivaldi|arc\.exe/i, 'Browser call (Google Meet / web)']
 ]
-const IGNORE = /meetingbuddy|electron\.exe/i
+// the app itself, also under its old name (an older install may still be running)
+const IGNORE = /clerisy|meetingbuddy|electron\.exe/i
 
 /**
  * How long every meeting app must stay off the mic before the meeting counts as ended. Apps release the mic

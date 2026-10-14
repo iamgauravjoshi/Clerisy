@@ -51,7 +51,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           version="$(node -p "require('./package.json').version")"
-          files=("release/MeetingBuddy-Setup-$version.exe" "release/MeetingBuddy-Setup-$version.exe.blockmap" "release/latest.yml")
+          files=("release/Clerisy-Setup-$version.exe" "release/Clerisy-Setup-$version.exe.blockmap" "release/latest.yml")
           ls -l "${files[@]}"
           if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
             if [ "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft)" != "true" ]; then
@@ -59,7 +59,7 @@ jobs:
               exit 1
             fi
           else
-            gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "MeetingBuddy $version" --generate-notes
+            gh release create "$GITHUB_REF_NAME" --draft --verify-tag --title "Clerisy $version" --generate-notes
           fi
           gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
 
@@ -72,7 +72,7 @@ jobs:
           version="$(node -p "require('./package.json').version")"
           assets="$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name')"
           echo "$assets"
-          for f in "MeetingBuddy-Setup-$version.exe" "MeetingBuddy-Setup-$version.exe.blockmap" latest.yml; do
+          for f in "Clerisy-Setup-$version.exe" "Clerisy-Setup-$version.exe.blockmap" latest.yml; do
             grep -qxF "$f" <<< "$assets" || { echo "::error::$f is missing from release $GITHUB_REF_NAME"; exit 1; }
           done
           count="$(gh api "repos/$GITHUB_REPOSITORY/releases" --jq "[.[] | select(.tag_name == \"$GITHUB_REF_NAME\")] | length")"

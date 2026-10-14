@@ -1,8 +1,8 @@
-# MeetingBuddy
+# Clerisy
 
 **What changed in the project because of this meeting?**
 
-MeetingBuddy is a Windows desktop app that keeps a living, versioned _project state_: requirements, decisions, tasks, risks, deadlines and open questions. After each meeting, AI compares the transcript against that state and proposes changes, each backed by verbatim evidence. You approve the changes, and the project state moves forward.
+Clerisy is a Windows desktop app that keeps a living, versioned _project state_: requirements, decisions, tasks, risks, deadlines and open questions. After each meeting, AI compares the transcript against that state and proposes changes, each backed by verbatim evidence. You approve the changes, and the project state moves forward.
 
 ```
 Project context → meeting capture (no bot) → transcript → AI impact analysis
@@ -15,7 +15,7 @@ Project context → meeting capture (no bot) → transcript → AI impact analys
 - **Botless capture**: records your mic and your system audio as separate streams, so it works with Zoom, Teams, Google Meet in any browser, Slack, Discord and others.
 - **Meeting auto-detection**: watches which apps are using the microphone (Windows privacy registry) and offers to record. When the meeting app releases the mic, recording stops automatically.
 - **Starts with Windows**: the installed app opens quietly in the tray when you sign in, so meetings are detected without opening it first. You can turn this off in Settings › Recording and hotkeys.
-- **Floating meeting controls**: while recording, a small window stays on top of your meeting app with the timer, the latest transcript line, and buttons to mark a moment, stop, or open MeetingBuddy. When a meeting app starts using the microphone, it offers to record. Drag it anywhere; it remembers where. You can turn it off in Settings › Recording.
+- **Floating meeting controls**: while recording, a small window stays on top of your meeting app with the timer, the latest transcript line, and buttons to mark a moment, stop, or open Clerisy. When a meeting app starts using the microphone, it offers to record. Drag it anywhere; it remembers where. You can turn it off in Settings › Recording.
 - **Global hotkeys**: `Ctrl+Shift+M` starts and stops recording; `Ctrl+Shift+D` marks an important moment, which the AI then weights more heavily.
 - **Live transcript** in roughly 30-second chunks, then a final full-file transcription for consistent speaker labels. The meeting page shows the final transcription's progress for your microphone and for the other participants. With local transcription, a slow computer skips preview chunks instead of falling behind.
 - **Bring your own model**: Claude, OpenAI, Gemini, OpenRouter, Ollama (local) or any OpenAI-compatible server. Keys are encrypted with Windows DPAPI.
@@ -40,20 +40,20 @@ npm install
 npm run dev          # run with hot reload
 npm test             # unit and pipeline tests
 npm run typecheck
-npm run dist:win     # build release/MeetingBuddy-Setup-x.y.z.exe
+npm run dist:win     # build release/Clerisy-Setup-x.y.z.exe
 npm run icons        # regenerate icons after changing resources/logo.svg
 ```
 
-Data is stored in `%APPDATA%\MeetingBuddy`:
+Data is stored in `%APPDATA%\Clerisy`:
 
-- `meetingbuddy.db` (SQLite)
+- `clerisy.db` (SQLite)
 - `settings.json`
 - `secrets.json` (encrypted)
 - `audio\<meeting-id>\{mic,system}.webm`
 
 ## Releasing
 
-Installed copies update themselves from **GitHub Releases**. They check a little after starting and then every few hours, never while recording. New versions download in the background, and the app offers **Restart to update**. Otherwise the update installs the next time MeetingBuddy quits.
+Installed copies update themselves from **GitHub Releases**. They check a little after starting and then every few hours, never while recording. New versions download in the background, and the app offers **Restart to update**. Otherwise the update installs the next time Clerisy quits.
 
 To publish a new version:
 

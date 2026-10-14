@@ -133,12 +133,12 @@ describe('meeting page', () => {
 
   it('offers to transcribe an interrupted recording', async () => {
     const { invoke } = setup({
-      getMeeting: () => ({ ...MEETING, status: 'ready', error: 'MeetingBuddy closed while recording.' }),
+      getMeeting: () => ({ ...MEETING, status: 'ready', error: 'Clerisy closed while recording.' }),
       getReport: () => null,
       hasRecording: () => true,
       transcribeRecording: () => undefined
     })
-    expect(await screen.findByText('MeetingBuddy closed while recording.')).toBeTruthy()
+    expect(await screen.findByText('Clerisy closed while recording.')).toBeTruthy()
     await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Transcribe recording' })))
     expect(calls(invoke, 'transcribeRecording')).toEqual([['m1']])
   })
@@ -376,7 +376,7 @@ describe('detect speakers again', () => {
     expect(await screen.findByText('Found 3 speakers')).toBeTruthy()
   })
 
-  it('lets MeetingBuddy decide when you are not sure', async () => {
+  it('lets Clerisy decide when you are not sure', async () => {
     const { invoke } = setup({ hasRecording: () => true, getLocalModelStatus: () => MODEL, detectSpeakers: () => ({ speakers: 5 }) })
     const dialog = await openDialog()
     fireEvent.click(within(dialog).getByRole('checkbox', { name: /I'm not sure/ }))

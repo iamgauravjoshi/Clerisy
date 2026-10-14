@@ -24,7 +24,7 @@ export function StartRecordingDialog(props: {
   if (props.projects.length === 0)
     return (
       <Dialog title="Record meeting" size="sm" onClose={props.onClose} footer={<Button onClick={props.onClose}>Close</Button>}>
-        <p>Create a project first, so MeetingBuddy knows which project this meeting belongs to.</p>
+        <p>Create a project first, so Clerisy knows which project this meeting belongs to.</p>
       </Dialog>
     )
 
@@ -80,7 +80,7 @@ export function StartRecordingDialog(props: {
         />
       </Field>
       <Banner tone="info">
-        MeetingBuddy records your microphone and your computer's audio output (the other participants), with no bot joining the call. Let
+        Clerisy records your microphone and your computer's audio output (the other participants), with no bot joining the call. Let
         participants know the meeting is being recorded.
       </Banner>
       {error && <Banner tone="danger">{error}</Banner>}

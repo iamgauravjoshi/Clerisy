@@ -1,4 +1,4 @@
-# MeetingBuddy design system and UI plan
+# Clerisy design system and UI plan
 
 Status: **implemented** (Steps 0–7, see §9). This document is the spec for the renderer UI: keep it in step with the code. §0 describes the code as it was before the redesign.
 
@@ -21,13 +21,13 @@ The main process, IPC, preload and data model are **out of scope**. The rebuild 
 - The file has only two pages: a cover and a component library. There are no full-size screen frames, so screen layouts here are adapted from the cover thumbnails and component specs, not copied.
 - Screenshots of the Buttons, Badge, Input and Table frames were blocked by the Figma Starter-plan MCP rate limit. Their variant names and tokens were read, so their specs below come from those.
 
-**Use of the kit:** inspiration only. We take its calm light-neutral surfaces, Geist typography, green brand colour, soft-tinted badges, 32/36/40 control sizes, and sidebar/top-bar structure. Its features (playlists, coaching, deals, upgrade plans, voice agents) don't exist in MeetingBuddy and are not carried over.
+**Use of the kit:** inspiration only. We take its calm light-neutral surfaces, Geist typography, green brand colour, soft-tinted badges, 32/36/40 control sizes, and sidebar/top-bar structure. Its features (playlists, coaching, deals, upgrade plans, voice agents) don't exist in Clerisy and are not carried over.
 
 ---
 
 ## 1. Design principles
 
-MeetingBuddy answers one question: *what changed in the project because of this meeting?* The UI should make that question, and its evidence, the most visible thing on every screen.
+Clerisy answers one question: *what changed in the project because of this meeting?* The UI should make that question, and its evidence, the most visible thing on every screen.
 
 1. **The project state is the hero, not the meeting.** Meetings are inputs; the board of requirements, decisions, tasks, risks, deadlines and questions is the output. Navigation, colour and hierarchy all point back to the state and to how a meeting changes it.
 2. **Evidence is always one click away.** Every proposed change shows its verbatim quote, the speaker and the timestamp. Clicking a quote jumps to the transcript line. Quotes get a distinct, recognisable treatment (§4 `EvidenceQuote`) that is never decorative.

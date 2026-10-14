@@ -129,7 +129,7 @@ export function closeDb(): void {
 function migrate(file: string): void {
   const version = (db.prepare('PRAGMA user_version').get() as Row).user_version as number
   if (version > MIGRATIONS.length) {
-    throw new Error(`This database was created by a newer version of MeetingBuddy (schema ${version}). Update the app to open it.`)
+    throw new Error(`This database was created by a newer version of Clerisy (schema ${version}). Update the app to open it.`)
   }
   if (version === MIGRATIONS.length) return
   const isNew = (db.prepare('SELECT COUNT(*) AS n FROM sqlite_master').get() as Row).n === 0
@@ -424,7 +424,7 @@ export function recoverInterruptedMeetings(): string[] {
   tx(() => {
     for (const r of rows) {
       const what = r.status === 'recording' ? 'The recording was interrupted' : 'Processing was interrupted'
-      stmt.run(now(), `${what} when MeetingBuddy closed. The audio saved so far can be transcribed.`, r.id)
+      stmt.run(now(), `${what} when Clerisy closed. The audio saved so far can be transcribed.`, r.id)
     }
     // an analysis cut off the same way just returns to where it started; the previous report, if any, is intact
     db.prepare(

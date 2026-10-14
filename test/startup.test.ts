@@ -3,8 +3,8 @@ import { HIDDEN_ARG, isHiddenLaunch, shouldWriteLoginItem } from '../src/main/st
 
 describe('startup rules', () => {
   it('treats a launch with --hidden as a start at sign-in', () => {
-    expect(isHiddenLaunch(['MeetingBuddy.exe', HIDDEN_ARG])).toBe(true)
-    expect(isHiddenLaunch(['MeetingBuddy.exe'])).toBe(false)
+    expect(isHiddenLaunch(['Clerisy.exe', HIDDEN_ARG])).toBe(true)
+    expect(isHiddenLaunch(['Clerisy.exe'])).toBe(false)
   })
 
   it('writes the login item only to fix a mismatch, unless the user changed the setting', () => {

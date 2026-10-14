@@ -3,7 +3,7 @@ import { readFileSync, renameSync, writeFileSync } from 'node:fs'
 import type { WidgetState } from '@shared/types'
 
 // The floating meeting widget: a small always-on-top window with the recording controls, so the user can mark a
-// moment or stop without finding MeetingBuddy behind the meeting app. It's the app's own page with #widget, so the
+// moment or stop without finding Clerisy behind the meeting app. It's the app's own page with #widget, so the
 // same preload, sandbox and IPC checks apply; main tells it what to show with the widget:state event.
 
 export const WIDGET_SIZE = { width: 380, height: 76 }
@@ -43,6 +43,8 @@ export class FloatingWidget {
       /** where the position is remembered */
       positionFile: string
       background: () => string
+      /** the Clerisy icon, for Alt+Tab (the widget isn't in the taskbar) */
+      icon: string
       isTrustedUrl: (url: string) => boolean
     }
   ) {}
@@ -85,7 +87,8 @@ export class FloatingWidget {
       fullscreenable: false,
       skipTaskbar: true,
       alwaysOnTop: true,
-      title: 'MeetingBuddy controls',
+      title: 'Clerisy controls',
+      icon: this.opts.icon,
       backgroundColor: this.opts.background(),
       webPreferences: { preload: this.opts.preload, sandbox: true, contextIsolation: true }
     })

@@ -20,7 +20,7 @@ export function Sidebar({ rail, children, footer }: { rail: boolean; children: R
       >
         <div className={cn('flex h-(--topbar-h) shrink-0 items-center gap-2.5', rail ? 'justify-center' : 'px-4')}>
           <BrandMark />
-          {rail ? <span className="sr-only">MeetingBuddy</span> : <span className="font-semibold text-subheading">MeetingBuddy</span>}
+          {rail ? <span className="sr-only">Clerisy</span> : <span className="font-semibold text-subheading">Clerisy</span>}
         </div>
         <div className={cn('flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto py-2', rail ? 'w-full items-center px-2' : 'px-3')}>
           {children}

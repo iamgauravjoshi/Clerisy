@@ -23,7 +23,7 @@ const STEPS: { icon: LucideIcon; title: string; body: string }[] = [
 ]
 
 /**
- * The first screen, before there's a project (DESIGN.md §6.1): what MeetingBuddy does in three steps, the one action
+ * The first screen, before there's a project (DESIGN.md §6.1): what Clerisy does in three steps, the one action
  * that starts it, and what's left to set up.
  */
 export function WelcomePage({
@@ -42,8 +42,8 @@ export function WelcomePage({
         <div className="flex flex-col gap-3">
           <h1 className="text-display">See what changed in your project, meeting by meeting.</h1>
           <p className="text-fg-secondary text-reading">
-            MeetingBuddy keeps your project's requirements, decisions and tasks, listens to your meetings, and proposes exactly what each
-            meeting changed, with the evidence.
+            Clerisy keeps your project's requirements, decisions and tasks, listens to your meetings, and proposes exactly what each meeting
+            changed, with the evidence.
           </p>
         </div>
         <Button variant="primary" size="lg" icon={Plus} onClick={onCreateProject}>

@@ -25,6 +25,7 @@ import { MeetingDetector } from './detector'
 import { applyLoginItem, applyTheme, getSettings } from './settings'
 import { appIconPath, trayImage } from './icons'
 import { isHiddenLaunch } from './startup'
+import { databaseFile, resolveDataDir } from './legacy'
 import { isSafeExternalUrl, isTrustedAppUrl, parseApiArgs, RECORDING_STATE } from './ipc'
 import type { DetectedMeeting, RecordingState, WidgetAction } from '@shared/types'
 
@@ -43,6 +44,13 @@ const startHidden = isHiddenLaunch(process.argv)
 // the only page this app loads; IPC, navigation, capture and permissions are limited to it
 const appUrl = process.env.ELECTRON_RENDERER_URL ?? pathToFileURL(join(__dirname, '../renderer/index.html')).href
 const fromApp = (frame: Electron.WebFrameMain | null | undefined): boolean => !!frame && isTrustedAppUrl(frame.url, appUrl)
+
+// MeetingBuddy is now Clerisy: the data folder is named after the product, so bring the old one along (legacy.ts).
+// Only for the default folder: a --user-data-dir (tests, throwaway profiles) is used exactly as given.
+if (app.getPath('userData') === join(app.getPath('appData'), app.getName())) {
+  const data = resolveDataDir(app.getPath('appData'), app.getPath('userData'), app.isPackaged)
+  if (data.dir !== app.getPath('userData')) app.setPath('userData', data.dir)
+}
 
 // a second copy just focuses the first one (see 'second-instance') and must not open the database or a tray icon
 const isPrimaryInstance = app.requestSingleInstanceLock()
@@ -64,7 +72,7 @@ function createWindow(): void {
     height: 820,
     minWidth: 900,
     minHeight: 600,
-    title: 'MeetingBuddy',
+    title: 'Clerisy',
     icon: appIconPath(),
     backgroundColor: canvasColor(),
     show: false,
@@ -103,10 +111,10 @@ function refreshTray(): void {
   if (!tray) return
   const s = getSettings()
   tray.setImage(trayImage(recording.active))
-  tray.setToolTip(recording.active ? 'MeetingBuddy: recording' : 'MeetingBuddy')
+  tray.setToolTip(recording.active ? 'Clerisy: recording' : 'Clerisy')
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'Open MeetingBuddy', click: showWindow },
+      { label: 'Open Clerisy', click: showWindow },
       {
         label: recording.active ? 'Stop recording' : 'Start recording…',
         accelerator: s.hotkeyRecord,
@@ -150,7 +158,7 @@ function installUpdate(): void {
     updater?.install()
   } catch (e) {
     showWindow()
-    void dialog.showMessageBox({ type: 'info', title: 'MeetingBuddy', message: e instanceof Error ? e.message : String(e) })
+    void dialog.showMessageBox({ type: 'info', title: 'Clerisy', message: e instanceof Error ? e.message : String(e) })
   }
 }
 
@@ -265,10 +273,10 @@ async function confirmQuitWhileRecording(): Promise<void> {
     defaultId: 1,
     cancelId: 1,
     noLink: true,
-    title: 'MeetingBuddy',
+    title: 'Clerisy',
     message: 'Stop recording and quit?',
     detail:
-      'The audio recorded so far is saved. Transcription will not finish before MeetingBuddy closes; you can transcribe the recording from its meeting page next time.'
+      'The audio recorded so far is saved. Transcription will not finish before Clerisy closes; you can transcribe the recording from its meeting page next time.'
   }
   const { response } = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options)
   if (response !== 0) {
@@ -284,8 +292,11 @@ app.on('second-instance', showWindow)
 
 app.whenReady().then(() => {
   if (!isPrimaryInstance) return
-  app.setAppUserModelId('com.meetingbuddy.app')
-  openDb(join(app.getPath('userData'), 'meetingbuddy.db'))
+  // The installed app keeps its original ID (see CLAUDE.md, "renamed from MeetingBuddy"). Running from source is
+  // electron.exe: under the installed app's ID, Windows showed the taskbar icon it had cached for that ID (Electron's),
+  // so source runs get their own ID, and the taskbar shows the window's Clerisy icon.
+  app.setAppUserModelId(app.isPackaged ? 'com.meetingbuddy.app' : 'com.clerisy.app.dev')
+  openDb(databaseFile(app.getPath('userData')))
   // meetings cut off by a quit or crash: mark them so their saved audio can be transcribed on request
   recoverInterruptedMeetings()
   try {
@@ -365,6 +376,7 @@ app.whenReady().then(() => {
     preload: join(__dirname, '../preload/index.js'),
     positionFile: join(app.getPath('userData'), 'widget.json'),
     background: canvasColor,
+    icon: appIconPath(),
     isTrustedUrl: (url) => isTrustedAppUrl(url, appUrl)
   })
   setWidgetHandler({ state: () => widget?.current ?? null, act: widgetAction })
@@ -376,8 +388,8 @@ app.whenReady().then(() => {
     onDownloaded: (version) => {
       if (!Notification.isSupported()) return
       const n = new Notification({
-        title: `MeetingBuddy ${version} is ready`,
-        body: 'Restart to update now, or it installs the next time you quit MeetingBuddy.',
+        title: `Clerisy ${version} is ready`,
+        body: 'Restart to update now, or it installs the next time you quit Clerisy.',
         icon: appIconPath()
       })
       n.on('click', showWindow)

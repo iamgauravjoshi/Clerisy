@@ -121,9 +121,9 @@ export class Updater {
   /** Restarts into the downloaded update. Refused while recording, since restarting would cut the recording off. */
   install(): void {
     if (!this.backend || this.current.state !== 'downloaded') throw new Error('No update is ready to install.')
-    if (this.opts.isBusy()) throw new Error('Stop the recording first: installing the update restarts MeetingBuddy.')
+    if (this.opts.isBusy()) throw new Error('Stop the recording first: installing the update restarts Clerisy.')
     this.opts.beforeInstall()
-    // silent: no installer windows; force run after: MeetingBuddy opens again once it's updated
+    // silent: no installer windows; force run after: Clerisy opens again once it's updated
     this.backend.quitAndInstall(true, true)
   }
 

@@ -1,6 +1,6 @@
 # sherpa-onnx spike: findings
 
-**Question:** can MeetingBuddy transcribe and diarize meetings **offline and for free**, inside the Electron app, fast enough and well enough to replace Deepgram?
+**Question:** can Clerisy transcribe and diarize meetings **offline and for free**, inside the Electron app, fast enough and well enough to replace Deepgram?
 
 **Answer: yes for English, go ahead with Phase 1.**
 - Use **Parakeet TDT 0.6B v2** for English. It transcribes a 30-minute meeting in about 3 minutes on a 4-core laptop CPU, with quality at least as good as Whisper turbo.
@@ -133,7 +133,7 @@ node label.js results/<audio name> whisper-turbo 0.9
 
 **Conclusion: local transcription with sherpa-onnx's Whisper int8 models cannot handle Hinglish today.**
 - The broken Devanagari, with consonants dropped and vowel signs stranded, points to **int8 quantization damage or a token-to-text problem** in this export, not just a hard accent. The English parts of the same segments come out cleanly.
-- Forcing English gives a **translation**, not a transcript. MeetingBuddy's evidence quotes would then be machine translations, and loops and invented lines would slip through quote validation, because the quotes would match the (wrong) transcript.
+- Forcing English gives a **translation**, not a transcript. Clerisy's evidence quotes would then be machine translations, and loops and invented lines would slip through quote validation, because the quotes would match the (wrong) transcript.
 
 **What to try for Hinglish:** (step 7 tried option 1: [../whispercpp/FINDINGS.md](../whispercpp/FINDINGS.md). Its Hindi is well-formed, but it runs at 2–3× real time on this CPU.)
 1. **whisper.cpp** (`whisper-cpp-node`, prebuilt win-x64 with Vulkan) with **large-v3-turbo in a non-int8 format** (q5/q8 GGML or f16). That's a different decoder and quantization, and has a better track record on Hindi.

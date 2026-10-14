@@ -244,7 +244,7 @@ export function DetectSpeakersDialog(props: {
   return (
     <Dialog
       title="Detect speakers again"
-      description="Tell MeetingBuddy how many other people spoke, and it matches their voices again on the saved recording, without transcribing it again."
+      description="Tell Clerisy how many other people spoke, and it matches their voices again on the saved recording, without transcribing it again."
       onClose={props.onClose}
       footer={
         <>
@@ -277,7 +277,7 @@ export function DetectSpeakersDialog(props: {
           data-autofocus
         />
       </Field>
-      <Checkbox checked={unsure} onChange={(e) => setUnsure(e.target.checked)} label="I'm not sure: let MeetingBuddy decide" />
+      <Checkbox checked={unsure} onChange={(e) => setUnsure(e.target.checked)} label="I'm not sure: let Clerisy decide" />
       <Banner tone="warning">
         The other participants' lines get new labels (Speaker 1, Speaker 2…), replacing names given with Map speakers.
         {props.hasReport ? ' Re-analyze afterwards so changes are attributed to the right person.' : ''} It takes a few minutes for a long
