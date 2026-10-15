@@ -22,8 +22,10 @@ import { askProject } from './ask'
 import { applyLoginItem, getSettings, loginItemStatus, saveSettings, setSecret } from './settings'
 import { appIconPath } from './icons'
 import { Updater } from './updater'
-import { checkUploadSize, CHUNK_TIMEOUT_MS, FILE_TIMEOUT_MS, isEcho, mergeStreams, transcribe } from './stt'
+import { checkUploadSize, CHUNK_TIMEOUT_MS, FILE_TIMEOUT_MS, isEcho, mergeStreams, type RawSegment, transcribe } from './stt'
 import { parseTranscript } from './transcriptParser'
+import { isBleed } from './bleed'
+import { decodeAudio } from './localStt/decode'
 import { getModel } from './llm'
 import { audioUsage, deleteAfterTranscription, deleteMeetingAudio, expiredAudio, meetingAudioDir, sweepOrphanedAudio } from './audio'
 import { generateText } from 'ai'
@@ -158,8 +160,24 @@ async function transcribeRecordings(s: Settings, meetingId: string): Promise<str
       .filter((g) => g.source === src)
       .map(({ speaker, tStart, tEnd, text, source }) => ({ speaker, tStart, tEnd, text, source }))
   })
-  db.replaceSegments(meetingId, [...STREAMS], mergeStreams(mic, sys))
+  db.replaceSegments(meetingId, [...STREAMS], mergeStreams(await withoutBleed(mic, files), sys))
   return errors
+}
+
+/**
+ * Drops mic lines that are the speakers' sound picked up by the mic (bleed.ts), which mergeStreams' word comparison misses
+ * when the bleed transcribed to different words. Needs both recordings; if they can't be decoded the lines stay.
+ */
+async function withoutBleed(mic: RawSegment[], [micFile, systemFile]: (Buffer | null)[]): Promise<RawSegment[]> {
+  if (!mic.length || !micFile || !systemFile) return mic
+  try {
+    const micPcm = await decodeAudio(micFile)
+    const systemPcm = await decodeAudio(systemFile)
+    return mic.filter((m) => !isBleed(micPcm, systemPcm, m.tStart, m.tEnd))
+  } catch (e) {
+    console.warn('bleed check skipped:', errText(e))
+    return mic
+  }
 }
 
 /** After a meeting: final transcription of the full recordings, then automatic impact analysis. */

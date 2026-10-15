@@ -43,6 +43,9 @@ vi.mock('../src/main/localStt', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../src/main/localStt')>()),
   relabelLocal
 }))
+// the bleed check decodes both recordings; by default it can't (the lines stay), tests that need it return audio
+const decodeAudio = vi.hoisted(() => vi.fn(async (): Promise<Float32Array> => Promise.reject(new Error('no decoder in tests'))))
+vi.mock('../src/main/localStt/decode', () => ({ decodeAudio, closeDecoder: vi.fn() }))
 vi.mock('../src/main/stt', async (importOriginal) => ({ ...(await importOriginal<typeof import('../src/main/stt')>()), transcribe }))
 
 import * as db from '../src/main/db'
@@ -195,6 +198,26 @@ describe('finishing a meeting', () => {
     await settled(id)
     expect(texts(id).sort()).toEqual(['chunk system charlie delta', 'final mic echo foxtrot'])
     expect(db.getMeeting(id)?.error).toMatch(/system.*Deepgram error 500/)
+  })
+
+  it('drops mic lines that are the speakers heard through the mic, even when they transcribed to other words', async () => {
+    // 20 s of system speech whose loudness rises and falls; the mic hears it 60 ms later for the first 10 s, then the user
+    // talks over it with a rhythm of their own
+    const rate = 16000
+    const system = new Float32Array(20 * rate)
+    const mic = new Float32Array(20 * rate)
+    for (let i = 0; i < system.length; i++) system[i] = Math.sin(i / 3) * (0.5 + 0.5 * Math.sin((2 * Math.PI * i) / (0.7 * rate)))
+    for (let i = 0; i < 10 * rate; i++) mic[i] = 0.6 * (system[i - 960] ?? 0)
+    for (let i = 10 * rate; i < mic.length; i++)
+      mic[i] = 0.3 * system[i] + Math.cos(i / 5) * Math.max(0, Math.sin((2 * Math.PI * i) / (1.3 * rate)))
+    decodeAudio.mockResolvedValueOnce(mic).mockResolvedValueOnce(system)
+    const id = await recorded()
+    transcribe
+      .mockResolvedValueOnce([said('do not clean it', 'mic', 2), said('i disagree with that plan', 'mic', 14)])
+      .mockResolvedValueOnce([said('oh no that is bad', 'system', 2)])
+    api.stopRecording(id)
+    await settled(id)
+    expect(texts(id)).toEqual(['oh no that is bad', 'i disagree with that plan'])
   })
 
   it('records an analysis failure on the meeting', async () => {

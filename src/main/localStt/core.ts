@@ -15,6 +15,17 @@ export const VAD_CONFIG = { threshold: 0.5, minSpeechDuration: 0.25, minSilenceD
  */
 export const DIARIZATION_CONFIG = { threshold: 0.9, minDurationOn: 0.3, minDurationOff: 0.5 }
 
+/**
+ * Even at 0.9 one person still ends up split over several voices (a 3-person meeting came out as 10), so with no expected
+ * count `mergeVoices` then joins voices that sound alike: cosine similarity of their mean CAM++ embeddings at least
+ * this. Measured on three meetings: one person's pieces scored 0.67–0.91, the closest two different people 0.64.
+ */
+export const VOICE_MERGE_THRESHOLD = 0.7
+/** Turns shorter than this give unreliable embeddings; longer ones are cut, and each voice uses at most MAX of them. */
+const EMBED_MIN_SECONDS = 1.5
+const EMBED_MAX_SECONDS = 10
+const EMBED_MAX_TURNS = 40
+
 /** One transcribed speech segment, in seconds from the start of the audio. */
 export interface LocalLine {
   start: number
@@ -67,10 +78,17 @@ export interface Sherpa {
     process(samples: Float32Array): SpeakerTurn[]
     setConfig(config: { clustering: { numClusters: number; threshold: number } }): void
   }
+  SpeakerEmbeddingExtractor: new (
+    config: unknown
+  ) => {
+    createStream(): { acceptWaveform(w: { sampleRate: number; samples: Float32Array }): void; inputFinished(): void }
+    compute(stream: unknown, enableExternalBuffer?: boolean): Float32Array
+  }
 }
 
 type Recognizer = InstanceType<Sherpa['OfflineRecognizer']>
 type Diarizer = InstanceType<Sherpa['OfflineSpeakerDiarization']>
+type Extractor = InstanceType<Sherpa['SpeakerEmbeddingExtractor']>
 
 /** Physical cores on a typical laptop: more threads than that made no difference in the spike. */
 export const threadCount = (logicalCpus: number): number => Math.max(1, Math.min(4, Math.floor(logicalCpus / 2)))
@@ -96,6 +114,74 @@ export function labelSpeakers(lines: LocalLine[], turns: SpeakerTurn[]): LocalLi
   return lines.map((l, i) => ({ ...l, speaker: order.get(raw[i]) }))
 }
 
+const unit = (v: Float32Array): Float32Array => {
+  let n = 0
+  for (const x of v) n += x * x
+  n = Math.sqrt(n) || 1
+  return v.map((x) => x / n)
+}
+const cosine = (a: Float32Array, b: Float32Array): number => {
+  const ua = unit(a)
+  const ub = unit(b)
+  let s = 0
+  for (let i = 0; i < ua.length; i++) s += ua[i] * ub[i]
+  return s
+}
+
+/**
+ * Joins voices that sound like the same person: each voice is the sum of the unit embeddings of its longest turns (plus one
+ * of its short turns joined together), and the most similar pair merges (summing them) until no pair reaches `threshold`.
+ * A voice with under EMBED_MIN_SECONDS of speech stays as it is. `embed` returns the speaker embedding of these stretches
+ * of the audio joined together, in seconds.
+ */
+export function mergeVoices(
+  turns: SpeakerTurn[],
+  embed: (ranges: [number, number][]) => Float32Array,
+  threshold = VOICE_MERGE_THRESHOLD
+): SpeakerTurn[] {
+  const byVoice = new Map<number, SpeakerTurn[]>()
+  for (const t of turns) byVoice.set(t.speaker, [...(byVoice.get(t.speaker) ?? []), t])
+  const groups: { ids: number[]; sum: Float32Array }[] = []
+  for (const [id, ts] of byVoice) {
+    const len = (t: SpeakerTurn): number => t.end - t.start
+    const samples: [number, number][][] = ts
+      .filter((t) => len(t) >= EMBED_MIN_SECONDS)
+      .sort((a, b) => len(b) - len(a))
+      .slice(0, EMBED_MAX_TURNS)
+      .map((t) => [[t.start, Math.min(t.end, t.start + EMBED_MAX_SECONDS)]])
+    const short: [number, number][] = []
+    let shortSeconds = 0
+    for (const t of ts.filter((t) => len(t) < EMBED_MIN_SECONDS)) {
+      if (shortSeconds >= EMBED_MAX_SECONDS) break
+      short.push([t.start, t.end])
+      shortSeconds += len(t)
+    }
+    if (shortSeconds >= EMBED_MIN_SECONDS) samples.push(short)
+    let sum: Float32Array | null = null
+    for (const ranges of samples) {
+      const e = unit(embed(ranges))
+      if (!sum) sum = new Float32Array(e.length)
+      for (let i = 0; i < e.length; i++) sum[i] += e[i]
+    }
+    if (sum) groups.push({ ids: [id], sum })
+  }
+  for (;;) {
+    let best = { score: -2, i: 0, j: 0 }
+    for (let i = 0; i < groups.length; i++)
+      for (let j = i + 1; j < groups.length; j++) {
+        const score = cosine(groups[i].sum, groups[j].sum)
+        if (score > best.score) best = { score, i, j }
+      }
+    if (groups.length < 2 || best.score < threshold) break
+    const [a, b] = [groups[best.i], groups[best.j]]
+    groups[best.i] = { ids: [...a.ids, ...b.ids], sum: a.sum.map((x, k) => x + b.sum[k]) }
+    groups.splice(best.j, 1)
+  }
+  const to = new Map<number, number>()
+  for (const g of groups) for (const id of g.ids) to.set(id, Math.min(...g.ids))
+  return turns.map((t) => ({ ...t, speaker: to.get(t.speaker) ?? t.speaker }))
+}
+
 /** Text that is only punctuation or spaces isn't speech. */
 const hasWords = (t: string): boolean => /[\p{L}\p{N}]/u.test(t)
 
@@ -106,6 +192,7 @@ const hasWords = (t: string): boolean => /[\p{L}\p{N}]/u.test(t)
 export class LocalTranscriber {
   private recognizers = new Map<string, Recognizer>()
   private diarizers = new Map<string, Diarizer>()
+  private extractors = new Map<string, Extractor>()
 
   constructor(
     private readonly sherpa: Sherpa,
@@ -158,7 +245,8 @@ export class LocalTranscriber {
 
   /**
    * Who speaks when, over the whole audio (diarization has to see all of it to tell voices apart). With
-   * `numSpeakers` it splits into exactly that many voices; otherwise it clusters by distance (DIARIZATION_CONFIG).
+   * `numSpeakers` it splits into exactly that many voices; otherwise it clusters by distance (DIARIZATION_CONFIG)
+   * and then joins voices that sound alike (`mergeVoices`).
    */
   speakerTurns(model: ResolvedModel, samples: Float32Array, numSpeakers?: number): SpeakerTurn[] {
     if (!model.speakers) throw new Error("The speaker-label models aren't installed.")
@@ -178,7 +266,25 @@ export class LocalTranscriber {
     diarizer.setConfig({
       clustering: { numClusters: numSpeakers && numSpeakers > 0 ? numSpeakers : -1, threshold: DIARIZATION_CONFIG.threshold }
     })
-    return diarizer.process(samples)
+    const turns = diarizer.process(samples)
+    if (numSpeakers && numSpeakers > 0) return turns
+    let extractor = this.extractors.get(model.speakers.embedding)
+    if (!extractor) {
+      extractor = new this.sherpa.SpeakerEmbeddingExtractor({ model: model.speakers.embedding, numThreads: this.threads, debug: 0 })
+      this.extractors.set(model.speakers.embedding, extractor)
+    }
+    const x = extractor
+    return mergeVoices(turns, (ranges) => {
+      const stream = x.createStream()
+      for (const [start, end] of ranges)
+        stream.acceptWaveform({
+          sampleRate: SAMPLE_RATE,
+          samples: samples.subarray(Math.floor(start * SAMPLE_RATE), Math.floor(end * SAMPLE_RATE))
+        })
+      stream.inputFinished()
+      // Electron doesn't allow external buffers (like vad.front(false) above)
+      return x.compute(stream, false)
+    })
   }
 
   /**
