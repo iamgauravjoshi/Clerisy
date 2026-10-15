@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { DIARIZATION_CONFIG, LocalTranscriber, labelSpeakers, type Sherpa, threadCount } from '../src/main/localStt/core'
+import { DIARIZATION_CONFIG, LocalTranscriber, labelSpeakers, mergeVoices, type Sherpa, threadCount } from '../src/main/localStt/core'
 import { DroppedJobError, IDLE_MS, jobTimeout, LocalSttEngine, type WorkerHandle } from '../src/main/localStt/engine'
 import {
   hasSpeakerModels,
@@ -93,6 +93,7 @@ describe('speaker labels', () => {
     const configs: unknown[] = []
     const process = vi.fn(() => [{ start: 0, end: 2, speaker: 5 }])
     const setConfig = vi.fn()
+    const compute = vi.fn(() => new Float32Array([1, 0]))
     const sherpa = {
       OfflineRecognizer: class {
         createStream = () => ({ acceptWaveform: () => {} })
@@ -106,6 +107,10 @@ describe('speaker labels', () => {
         }
         process = process
         setConfig = setConfig
+      },
+      SpeakerEmbeddingExtractor: class {
+        createStream = () => ({ acceptWaveform: () => {}, inputFinished: () => {} })
+        compute = compute
       }
     } as unknown as Sherpa
     const t = new LocalTranscriber(sherpa, 2)
@@ -126,12 +131,17 @@ describe('speaker labels', () => {
     expect(process).toHaveBeenCalledWith(audio)
     expect(configs[0]).toMatchObject({ clustering: { numClusters: -1, threshold: DIARIZATION_CONFIG.threshold } })
     expect(DIARIZATION_CONFIG.threshold).toBe(0.9)
-    // unknown count: cluster by distance
+    // unknown count: cluster by distance, then compare the voices
     expect(setConfig).toHaveBeenLastCalledWith({ clustering: { numClusters: -1, threshold: 0.9 } })
+    // false: Electron refuses external buffers ("External buffers are not allowed")
+    expect(compute).toHaveBeenCalledWith(expect.anything(), false)
+    compute.mockClear()
 
     // the user said 3 people: exactly 3 voices
     t.transcribe(model, audio, undefined, { speakers: true, numSpeakers: 3 })
     expect(setConfig).toHaveBeenLastCalledWith({ clustering: { numClusters: 3, threshold: 0.9 } })
+    // a given count is final: no voices are joined
+    expect(compute).not.toHaveBeenCalled()
 
     // Detect speakers again: labels the given lines, without transcribing
     const segs = vi.mocked(t.speechSegments)
@@ -353,5 +363,44 @@ describe('local transcription engine', () => {
     await expect(a).rejects.toThrow('stopped')
     await expect(b).rejects.toThrow('stopped')
     expect(workers[0].killed).toBe(true)
+  })
+})
+
+describe('mergeVoices', () => {
+  // embeddings by voice: 1 and 3 are the same person (close vectors), 2 is someone else
+  const voiceAt = (t: number): number => (t < 10 ? 1 : t < 20 ? 2 : 3)
+  const vec: Record<number, number[]> = { 1: [1, 0.1, 0], 2: [0, 1, 0], 3: [0.95, 0.2, 0.05] }
+  const embed = (ranges: [number, number][]): Float32Array => Float32Array.from(vec[voiceAt(ranges[0][0])])
+  const turns = [
+    { start: 0, end: 5, speaker: 1 },
+    { start: 10, end: 15, speaker: 2 },
+    { start: 20, end: 25, speaker: 3 },
+    { start: 26, end: 26.5, speaker: 4 }
+  ]
+  it('joins voices that sound alike and keeps different ones apart', () => {
+    expect(mergeVoices(turns, embed).map((t) => t.speaker)).toEqual([1, 2, 1, 4])
+  })
+  it('keeps a voice with too little speech to embed as it is', () => {
+    expect(mergeVoices(turns, embed)[3].speaker).toBe(4)
+  })
+  it('embeds short turns joined together', () => {
+    const short = [
+      { start: 0, end: 5, speaker: 1 },
+      { start: 21, end: 22, speaker: 7 },
+      { start: 23, end: 24, speaker: 7 }
+    ]
+    const seen: [number, number][][] = []
+    const r = mergeVoices(short, (ranges) => {
+      seen.push(ranges)
+      return embed(ranges)
+    })
+    expect(seen).toContainEqual([
+      [21, 22],
+      [23, 24]
+    ])
+    expect(r.map((t) => t.speaker)).toEqual([1, 1, 1])
+  })
+  it('merges nothing below the threshold', () => {
+    expect(mergeVoices(turns, embed, 0.9999).map((t) => t.speaker)).toEqual([1, 2, 3, 4])
   })
 })
