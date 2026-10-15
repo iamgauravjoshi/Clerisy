@@ -221,8 +221,8 @@ describe('settings page', () => {
     setup()
     const source = await screen.findByRole('link', { name: 'Source code on GitHub' })
     const report = screen.getByRole('link', { name: 'Report a problem' })
-    expect(source.getAttribute('href')).toBe('https://github.com/iamgauravjoshi/MeetingBuddy')
-    expect(report.getAttribute('href')).toBe('https://github.com/iamgauravjoshi/MeetingBuddy/issues/new')
+    expect(source.getAttribute('href')).toBe('https://github.com/iamgauravjoshi/Clerisy')
+    expect(report.getAttribute('href')).toBe('https://github.com/iamgauravjoshi/Clerisy/issues/new')
     expect(source.getAttribute('target')).toBe('_blank')
   })
 
