@@ -260,7 +260,7 @@ export interface AppInfo {
   loginItem: { supported: boolean; willLaunch: boolean }
 }
 
-export const REPO_URL = 'https://github.com/iamgauravjoshi/MeetingBuddy'
+export const REPO_URL = 'https://github.com/iamgauravjoshi/Clerisy'
 
 /**
  * Where the updater is. Updates come from GitHub Releases and download in the background; installing waits for the

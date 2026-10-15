@@ -84,7 +84,7 @@
     "publish": {
       "provider": "github",
       "owner": "iamgauravjoshi",
-      "repo": "MeetingBuddy",
+      "repo": "Clerisy",
       "releaseType": "draft"
     },
     "win": {
